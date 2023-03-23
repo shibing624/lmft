@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Xu
+    given-names: Ming
+title: "lmft: Text to vector toolkit"
+version: 0.1.0
+date-released: 2023-03-23
+url: "https://github.com/shibing624/lmft"
