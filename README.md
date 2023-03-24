@@ -146,7 +146,7 @@ Embedding shape: (768,)
 
 #### dataset
 1. [0.5M生成的中文ChatGPT结果数据](https://huggingface.co/datasets/BelleGroup/generated_train_0.5M_CN)
-2. [5W English Stanford Alpaca dataset](https://github.com/tatsu-lab/stanford_alpaca#data-release)
+2. [50k English Stanford Alpaca dataset](https://github.com/tatsu-lab/stanford_alpaca#data-release)
 
 
 # Contact
