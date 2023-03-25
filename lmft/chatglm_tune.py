@@ -14,7 +14,7 @@ from transformers.trainer import TRAINING_ARGS_NAME
 from datasets import load_dataset
 
 SOP_TOKEN_ID = 150004
-
+PAD_TOKEN_ID = 20003
 
 @dataclass
 class ModelArguments:
@@ -35,9 +35,7 @@ class CastOutputToFloat(nn.Sequential):
         return super().forward(x).to(torch.float32)
 
 
-def get_masks_and_position_ids(
-        seq_len, context_length, device, gmask=False, position_encoding_2d=True
-):
+def get_masks_and_position_ids(seq_len, context_length, device, gmask=False, position_encoding_2d=True):
     mask_position = (
             seq_len - 2
     )  # is equal to `seq.index(mask_token)` or `seq.index(150001)`
@@ -101,7 +99,7 @@ def build_dataset(tokenizer, dataset_name="shibing624/alpaca-zh", max_seq_length
         return example
 
     ds = ds.map(tokenize, batched=False)
-    ds.set_format(type="torch")
+    # ds.set_format(type="torch")
     return ds
 
 
@@ -114,13 +112,13 @@ def data_collator(batch):
     labels_list = []
     for ids_l, feature in sorted(zip(len_ids, batch), key=lambda x: -x[0]):
         ids = feature["input_ids"]
-        seq_len = ids.tolist().index(SOP_TOKEN_ID)
+        seq_len = ids.index(SOP_TOKEN_ID)
         labels = (
                 [-100] * (seq_len - 1)
                 + ids[(seq_len - 1):]
                 + [-100] * (longest - ids_l)
         )
-        # ids = ids + [self.tokenizer.pad_token_id] * (longest - ids_l)
+        ids = ids + [PAD_TOKEN_ID] * (longest - ids_l)
         _ids = torch.LongTensor(ids)
         attention_mask, position_ids = get_masks_and_position_ids(
             seq_len, longest, _ids.device, gmask=False

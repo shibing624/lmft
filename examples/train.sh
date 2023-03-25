@@ -1,0 +1,12 @@
+python train_chatglm_model.py \
+    --output_dir outputs \
+    --lora_rank 8 \
+    --per_device_train_batch_size 2 \
+    --gradient_accumulation_steps 1 \
+    --max_steps 20000 \
+    --save_steps 1000 \
+    --save_total_limit 2 \
+    --learning_rate 2e-5 \
+    --fp16 \
+    --remove_unused_columns false \
+    --logging_steps 50
