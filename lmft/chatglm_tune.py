@@ -34,7 +34,7 @@ class CastOutputToFloat(nn.Sequential):
 
 
 def get_masks_and_position_ids(
-        seq, seq_len, context_length, device, gmask=False, position_encoding_2d=True
+        seq_len, context_length, device, gmask=False, position_encoding_2d=True
 ):
     mask_position = (
             seq_len - 2
@@ -103,48 +103,44 @@ def build_dataset(tokenizer, dataset_name="shibing624/alpaca-zh", max_seq_length
     return ds
 
 
-# def data_collator(batch):
-#     return batch
+def data_collator(batch):
+    len_ids = [len(feature["input_ids"]) for feature in batch]
+    longest = max(len_ids)
+    input_ids = []
+    attention_mask_list = []
+    position_ids_list = []
+    labels_list = []
+    for ids_l, feature in sorted(zip(len_ids, batch), key=lambda x: -x[0]):
+        ids = feature["input_ids"]
+        seq_len = feature["seq_len"]
+        labels = (
+                [-100] * (seq_len - 1)
+                + ids[(seq_len - 1):]
+                + [-100] * (longest - ids_l)
+        )
+        # ids = ids + [self.tokenizer.pad_token_id] * (longest - ids_l)
+        _ids = torch.LongTensor(ids)
+        attention_mask, position_ids = get_masks_and_position_ids(
+            seq_len, longest, _ids.device, gmask=False
+        )
+        labels_list.append(torch.LongTensor(labels))
+        input_ids.append(_ids)
+        attention_mask_list.append(attention_mask)
+        position_ids_list.append(position_ids)
+    input_ids = torch.stack(input_ids)
+    labels = torch.stack(labels_list)
+    attention_mask = torch.stack(attention_mask_list)
+    position_ids = torch.stack(position_ids_list)
+    return {
+        "input_ids": input_ids,
+        "labels": labels,
+        "attention_mask": attention_mask,
+        "position_ids": position_ids,
+    }
 
 
 class FinetuneTrainer(Trainer):
-    def convert_batch(self, batch) -> dict:
-        len_ids = [len(feature["input_ids"]) for feature in batch]
-        longest = max(len_ids)
-        input_ids = []
-        attention_mask_list = []
-        position_ids_list = []
-        labels_list = []
-        for ids_l, feature in sorted(zip(len_ids, batch), key=lambda x: -x[0]):
-            ids = feature["input_ids"]
-            seq_len = feature["seq_len"]
-            labels = (
-                    [-100] * (seq_len - 1)
-                    + ids[(seq_len - 1):]
-                    + [-100] * (longest - ids_l)
-            )
-            ids = ids + [self.tokenizer.pad_token_id] * (longest - ids_l)
-            _ids = torch.LongTensor(ids)
-            attention_mask, position_ids = get_masks_and_position_ids(
-                ids, seq_len, longest, _ids.device, gmask=False
-            )
-            labels_list.append(torch.LongTensor(labels))
-            input_ids.append(_ids)
-            attention_mask_list.append(attention_mask)
-            position_ids_list.append(position_ids)
-        input_ids = torch.stack(input_ids)
-        labels = torch.stack(labels_list)
-        attention_mask = torch.stack(attention_mask_list)
-        position_ids = torch.stack(position_ids_list)
-        return {
-            "input_ids": input_ids,
-            "labels": labels,
-            "attention_mask": attention_mask,
-            "position_ids": position_ids,
-        }
-
     def compute_loss(self, model, inputs, return_outputs=False):
-        inputs = self.convert_batch(inputs)
         return model(
             input_ids=inputs["input_ids"],
             attention_mask=inputs["attention_mask"],

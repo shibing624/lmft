@@ -19,6 +19,7 @@ from lmft.chatglm_tune import (
     FinetuneTrainer,
     save_tunable_parameters,
     build_dataset,
+data_collator,
 )
 from lmft.modeling_chatglm import ChatGLMForConditionalGeneration
 
@@ -61,6 +62,7 @@ def main():
         train_dataset=ds,
         args=training_args,
         tokenizer=tokenizer,
+        data_collator=data_collator,
     )
     trainer.train()
 
