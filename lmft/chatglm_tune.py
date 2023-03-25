@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 """
 @author:XuMing(xuming624@qq.com)
-@description: 
+@description:
 """
+from typing import Optional
+import os
 from transformers import TrainingArguments, Trainer, HfArgumentParser
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer
 from transformers.trainer import TRAINING_ARGS_NAME
 import torch
 import torch.nn as nn
 from peft import get_peft_model, LoraConfig, TaskType
 from dataclasses import dataclass, field
 import datasets
-from typing import Optional
-import os
-
+from lmft.modeling_chatglm import ChatGLMForConditionalGeneration
 
 @dataclass
 class ModelArguments:
@@ -22,14 +22,9 @@ class ModelArguments:
     """
 
     model_name_or_path: Optional[str] = field(default="THUDM/chatglm-6b")
-
-
-@dataclass
-class DataTrainingArguments:
     dataset_name: Optional[str] = field(
         default="shibing624/alpaca-zh", metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
-    model_path: str = field(default="output")
     lora_name: str = field(default="chatglm6b-lora.pt")
     lora_rank: int = field(default=8)
 
@@ -117,10 +112,10 @@ class ModifiedTrainer(Trainer):
             labels=inputs["labels"],
         ).loss
 
-    def save_model(self, output_dir=None, _internal_call=False):
+    def save_model(self, output_dir=None, _internal_call=False, lora_name='lora.pt'):
         os.makedirs(output_dir, exist_ok=True)
         torch.save(self.args, os.path.join(output_dir, TRAINING_ARGS_NAME))
-        save_tunable_parameters(self.model, os.path.join(output_dir, self.args.lora_name))
+        save_tunable_parameters(self.model, os.path.join(output_dir, lora_name))
 
 
 def save_tunable_parameters(model, path):
@@ -131,11 +126,12 @@ def save_tunable_parameters(model, path):
 
 
 def main():
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
-    model_args, training_args = parser.parse_args_into_dataclasses()
+    model_args, training_args = HfArgumentParser(
+        (ModelArguments, TrainingArguments)
+    ).parse_args_into_dataclasses()
 
     tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, trust_remote_code=True)
-    model = AutoModel.from_pretrained(
+    model = ChatGLMForConditionalGeneration.from_pretrained(
         model_args.model_name_or_path, trust_remote_code=True, device_map="auto"
     ).half().cuda()
     model.gradient_checkpointing_enable()
@@ -149,14 +145,15 @@ def main():
     peft_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
         inference_mode=False,
-        r=training_args.lora_rank,
+        r=model_args.lora_rank,
         lora_alpha=32,
         lora_dropout=0.1,
     )
     model = get_peft_model(model, peft_config)
 
     # load dataset
-    ds = datasets.load_dataset(training_args.dataset_name)
+    ds = datasets.load_dataset(model_args.dataset_name, split="train")
+    # ds = datasets.load_from_disk(model_args.dataset_name)
 
     # start train
     trainer = ModifiedTrainer(
@@ -170,7 +167,7 @@ def main():
 
     # save model
     save_tunable_parameters(
-        model, os.path.join(training_args.output_dir, training_args.lora_name)
+        model, os.path.join(training_args.output_dir, model_args.lora_name)
     )
 
 
