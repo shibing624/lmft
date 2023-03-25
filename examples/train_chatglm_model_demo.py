@@ -6,7 +6,6 @@
 import os
 import sys
 
-import datasets
 from loguru import logger
 from peft import get_peft_model, LoraConfig, TaskType
 from transformers import AutoTokenizer
@@ -19,7 +18,7 @@ from lmft.chatglm_tune import (
     FinetuneTrainer,
     save_tunable_parameters,
     build_dataset,
-data_collator,
+    data_collator,
 )
 from lmft.modeling_chatglm import ChatGLMForConditionalGeneration
 
