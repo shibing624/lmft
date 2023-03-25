@@ -12,8 +12,6 @@ import torch.nn as nn
 from transformers import Trainer
 from transformers.trainer import TRAINING_ARGS_NAME
 from datasets import load_dataset
-from tqdm import tqdm
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 @dataclass
@@ -68,7 +66,7 @@ def get_masks_and_position_ids(
     return attention_mask, position_ids
 
 
-def build_dataset(model_name, dataset_name="shibing624/alpaca-zh", max_seq_length=512):
+def build_dataset(tokenizer, dataset_name="shibing624/alpaca-zh", max_seq_length=512):
     """
     Build dataset for training. This builds the dataset from `load_dataset`, one should
     customize this function to train the model on its own dataset.
@@ -81,8 +79,7 @@ def build_dataset(model_name, dataset_name="shibing624/alpaca-zh", max_seq_lengt
         dataloader (`torch.utils.data.DataLoader`):
             The dataloader for the dataset.
     """
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    # load imdb with datasets
+    # load datasets
     ds = load_dataset(dataset_name, split="train")
     ds = ds.rename_columns({"output": "target"})
     ds = ds.filter(lambda x: len(x["target"]) > 2, batched=False)
@@ -106,44 +103,48 @@ def build_dataset(model_name, dataset_name="shibing624/alpaca-zh", max_seq_lengt
     return ds
 
 
-def data_collator(batch, tokenizer) -> dict:
-    len_ids = [len(feature["input_ids"]) for feature in batch]
-    longest = max(len_ids)
-    input_ids = []
-    attention_mask_list = []
-    position_ids_list = []
-    labels_list = []
-    for ids_l, feature in sorted(zip(len_ids, batch), key=lambda x: -x[0]):
-        ids = feature["input_ids"]
-        seq_len = feature["seq_len"]
-        labels = (
-                [-100] * (seq_len - 1)
-                + ids[(seq_len - 1):]
-                + [-100] * (longest - ids_l)
-        )
-        ids = ids + [tokenizer.pad_token_id] * (longest - ids_l)
-        _ids = torch.LongTensor(ids)
-        attention_mask, position_ids = get_masks_and_position_ids(
-            ids, seq_len, longest, _ids.device, gmask=False
-        )
-        labels_list.append(torch.LongTensor(labels))
-        input_ids.append(_ids)
-        attention_mask_list.append(attention_mask)
-        position_ids_list.append(position_ids)
-    input_ids = torch.stack(input_ids)
-    labels = torch.stack(labels_list)
-    attention_mask = torch.stack(attention_mask_list)
-    position_ids = torch.stack(position_ids_list)
-    return {
-        "input_ids": input_ids,
-        "labels": labels,
-        "attention_mask": attention_mask,
-        "position_ids": position_ids,
-    }
+# def data_collator(batch):
+#     return batch
 
 
 class FinetuneTrainer(Trainer):
+    def convert_batch(self, batch) -> dict:
+        len_ids = [len(feature["input_ids"]) for feature in batch]
+        longest = max(len_ids)
+        input_ids = []
+        attention_mask_list = []
+        position_ids_list = []
+        labels_list = []
+        for ids_l, feature in sorted(zip(len_ids, batch), key=lambda x: -x[0]):
+            ids = feature["input_ids"]
+            seq_len = feature["seq_len"]
+            labels = (
+                    [-100] * (seq_len - 1)
+                    + ids[(seq_len - 1):]
+                    + [-100] * (longest - ids_l)
+            )
+            ids = ids + [self.tokenizer.pad_token_id] * (longest - ids_l)
+            _ids = torch.LongTensor(ids)
+            attention_mask, position_ids = get_masks_and_position_ids(
+                ids, seq_len, longest, _ids.device, gmask=False
+            )
+            labels_list.append(torch.LongTensor(labels))
+            input_ids.append(_ids)
+            attention_mask_list.append(attention_mask)
+            position_ids_list.append(position_ids)
+        input_ids = torch.stack(input_ids)
+        labels = torch.stack(labels_list)
+        attention_mask = torch.stack(attention_mask_list)
+        position_ids = torch.stack(position_ids_list)
+        return {
+            "input_ids": input_ids,
+            "labels": labels,
+            "attention_mask": attention_mask,
+            "position_ids": position_ids,
+        }
+
     def compute_loss(self, model, inputs, return_outputs=False):
+        inputs = self.convert_batch(inputs)
         return model(
             input_ids=inputs["input_ids"],
             attention_mask=inputs["attention_mask"],

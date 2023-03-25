@@ -17,7 +17,6 @@ from lmft.chatglm_tune import (
     ModelArguments,
     CastOutputToFloat,
     FinetuneTrainer,
-    data_collator,
     save_tunable_parameters,
     build_dataset,
 )
@@ -39,7 +38,7 @@ def main():
     model.is_parallelizable = True
     model.model_parallel = True
     model.lm_head = CastOutputToFloat(model.lm_head)
-    model.config.use_cache = (False)
+    model.config.use_cache = False
 
     # setup peft
     peft_config = LoraConfig(
@@ -52,7 +51,7 @@ def main():
     model = get_peft_model(model, peft_config)
 
     # load dataset
-    ds = build_dataset(model_args.model_name_or_path, model_args.dataset_name, max_seq_length=256)
+    ds = build_dataset(tokenizer, model_args.dataset_name, max_seq_length=256)
     logger.debug(ds)
     logger.debug(f"dataset first row: {next(iter(ds))}")
 
@@ -61,7 +60,6 @@ def main():
         model=model,
         train_dataset=ds,
         args=training_args,
-        data_collator=data_collator,
         tokenizer=tokenizer,
     )
     trainer.train()
