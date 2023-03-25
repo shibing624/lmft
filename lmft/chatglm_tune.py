@@ -13,6 +13,8 @@ from transformers import Trainer
 from transformers.trainer import TRAINING_ARGS_NAME
 from datasets import load_dataset
 
+SOP_TOKEN_ID = 150004
+
 
 @dataclass
 class ModelArguments:
@@ -112,7 +114,7 @@ def data_collator(batch):
     labels_list = []
     for ids_l, feature in sorted(zip(len_ids, batch), key=lambda x: -x[0]):
         ids = feature["input_ids"]
-        seq_len = feature["seq_len"]
+        seq_len = ids.tolist().index(SOP_TOKEN_ID)
         labels = (
                 [-100] * (seq_len - 1)
                 + ids[(seq_len - 1):]
