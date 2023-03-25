@@ -11,6 +11,9 @@ import torch
 import torch.nn as nn
 from transformers import Trainer
 from transformers.trainer import TRAINING_ARGS_NAME
+from datasets import load_dataset
+from tqdm import tqdm
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 @dataclass
@@ -65,6 +68,44 @@ def get_masks_and_position_ids(
     return attention_mask, position_ids
 
 
+def build_dataset(model_name, dataset_name="shibing624/alpaca-zh", max_seq_length=512):
+    """
+    Build dataset for training. This builds the dataset from `load_dataset`, one should
+    customize this function to train the model on its own dataset.
+
+    Args:
+        dataset_name (`str`):
+            The name of the dataset to be loaded.
+
+    Returns:
+        dataloader (`torch.utils.data.DataLoader`):
+            The dataloader for the dataset.
+    """
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    # load imdb with datasets
+    ds = load_dataset(dataset_name, split="train")
+    ds = ds.rename_columns({"output": "target"})
+    ds = ds.filter(lambda x: len(x["target"]) > 2, batched=False)
+
+    def tokenize(example):
+        prompt = f"Instruction: {example['instruction']}\n"
+        if example.get("input", ""):
+            prompt += f"Input: {example['input']}\n"
+        prompt += "Answer: "
+        example['prompt'] = prompt
+        prompt_ids = tokenizer.encode(prompt, max_length=max_seq_length, truncation=True)
+        target_ids = tokenizer.encode(example["target"], max_length=max_seq_length, truncation=True,
+                                      add_special_tokens=False)
+        input_ids = prompt_ids + target_ids + [tokenizer.eos_token_id]
+        example["input_ids"] = input_ids[:max_seq_length]
+        example["seq_len"] = len(prompt_ids)
+        return example
+
+    ds = ds.map(tokenize, batched=False)
+    ds.set_format(type="torch")
+    return ds
+
+
 def data_collator(batch, tokenizer) -> dict:
     len_ids = [len(feature["input_ids"]) for feature in batch]
     longest = max(len_ids)
@@ -101,7 +142,7 @@ def data_collator(batch, tokenizer) -> dict:
     }
 
 
-class ModifiedTrainer(Trainer):
+class FinetuneTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False):
         return model(
             input_ids=inputs["input_ids"],
@@ -121,5 +162,3 @@ def save_tunable_parameters(model, path):
         k: v.to("cpu") for k, v in model.named_parameters() if v.requires_grad
     }
     torch.save(saved_params, path)
-
-

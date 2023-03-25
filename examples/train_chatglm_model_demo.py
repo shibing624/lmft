@@ -1,18 +1,26 @@
 # -*- coding: utf-8 -*-
 """
 @author:XuMing(xuming624@qq.com)
-@description: 
+@description:
 """
 import os
 import sys
 
 import datasets
+from loguru import logger
 from peft import get_peft_model, LoraConfig, TaskType
 from transformers import AutoTokenizer
 from transformers import TrainingArguments, HfArgumentParser
 
 sys.path.append('..')
-from lmft.chatglm_tune import ModelArguments, CastOutputToFloat, ModifiedTrainer, data_collator, save_tunable_parameters
+from lmft.chatglm_tune import (
+    ModelArguments,
+    CastOutputToFloat,
+    FinetuneTrainer,
+    data_collator,
+    save_tunable_parameters,
+    build_dataset,
+)
 from lmft.modeling_chatglm import ChatGLMForConditionalGeneration
 
 
@@ -20,6 +28,7 @@ def main():
     model_args, training_args = HfArgumentParser(
         (ModelArguments, TrainingArguments)
     ).parse_args_into_dataclasses()
+    logger.info(f"model_args: {model_args}, training_args: {training_args}")
 
     tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, trust_remote_code=True)
     model = ChatGLMForConditionalGeneration.from_pretrained(
@@ -43,11 +52,12 @@ def main():
     model = get_peft_model(model, peft_config)
 
     # load dataset
-    ds = datasets.load_dataset(model_args.dataset_name, split="train")
-    # ds = datasets.load_from_disk(model_args.dataset_name)
+    ds = build_dataset(model_args.model_name_or_path, model_args.dataset_name, max_seq_length=256)
+    logger.debug(ds)
+    logger.debug(f"dataset first row: {next(iter(ds))}")
 
     # start train
-    trainer = ModifiedTrainer(
+    trainer = FinetuneTrainer(
         model=model,
         train_dataset=ds,
         args=training_args,
