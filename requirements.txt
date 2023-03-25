@@ -1,5 +1,8 @@
 loguru
-peft
 transformers
 datasets
 tqdm
+trl
+icetk
+cpm_kernels
+git+https://github.com/huggingface/peft.git

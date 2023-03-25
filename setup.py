@@ -33,7 +33,7 @@ setup(
     keywords='lmft,GPT2,transformers,pytorch,language model',
     install_requires=[
         "loguru",
-        "peft",
+        "trl",
         "transformers",
         "datasets",
         "tqdm",
