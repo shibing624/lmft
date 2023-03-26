@@ -14,11 +14,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", default="THUDM/chatglm-6b", type=str)
     parser.add_argument("--train_data", default='shibing624/alpaca-zh', type=str)
+    parser.add_argument("--lora_path", default='outputs/lora.pt', type=str)
 
     args = parser.parse_args()
-    m = ChatGLMTune('chatglm', args.model_name)
-    m.train_model(args.train_data)
-    m.predict(['你是谁', '三原色是啥'])
+    m = ChatGLMTune('chatglm', args.model_name, lora_path=args.lora_path)
+    # m.train_model(args.train_data)
+    r = m.predict(['你是谁', '三原色是啥'])
+    print(r)
 
 
 if __name__ == '__main__':

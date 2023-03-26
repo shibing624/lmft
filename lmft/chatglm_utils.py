@@ -181,6 +181,16 @@ class ChatGLMArgs(ModelArgs):
     dataset_name_or_path: Optional[str] = field(default="shibing624/alpaca-zh")
     lora_name: str = field(default="lora.pt")
     lora_rank: int = field(default=8)
+    num_train_epochs = 1
+    max_steps = -1
+    per_device_train_batch_size = 2
+    gradient_accumulation_steps = 1
+    save_steps = 1000
+    save_total_limit = 2
+    learning_rate = 2e-5
+    fp16 = True
+    remove_unused_columns = False
+    logging_steps = 50
 
 
 class ChatGLMConfig(PretrainedConfig):

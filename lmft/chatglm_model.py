@@ -67,6 +67,7 @@ class ChatGLMTune:
             model_type,
             model_name,
             args=None,
+            lora_path=None,
             use_cuda=has_cuda,
             cuda_device=-1,
             **kwargs,
@@ -84,27 +85,28 @@ class ChatGLMTune:
             **kwargs (optional): For providing proxies, force_download, resume_download, cache_dir and other options specific to the 'from_pretrained' implementation where this will be supplied.
         """  # noqa: ignore flake8"
         model_type = model_type.lower()
-        training_args = TrainingArguments(model_type)
-        training_args.output_dir: str = "outputs/"
-        training_args.num_train_epochs = 1
-        training_args.max_steps = -1
-        training_args.per_device_train_batch_size = 2
-        training_args.gradient_accumulation_steps = 1
-        training_args.save_steps = 1000
-        training_args.save_total_limit = 2
-        training_args.learning_rate = 2e-5
-        training_args.fp16 = True
-        training_args.remove_unused_columns = False
-        training_args.logging_steps = 50
-        self.training_args = training_args
-        logger.info(f"training_args: {self.training_args}")
-
         self.args = self._load_model_args(model_name)
 
         if isinstance(args, dict):
             self.args.update_from_dict(args)
         elif isinstance(args, ChatGLMArgs):
             self.args = args
+        
+        training_args = TrainingArguments(self.args.output_dir)
+        training_args.output_dir: str = self.args.output_dir
+        training_args.num_train_epochs = self.args.num_train_epochs
+        training_args.max_steps = self.args.max_steps
+        training_args.per_device_train_batch_size = self.args.per_device_train_batch_size
+        training_args.gradient_accumulation_steps = self.args.gradient_accumulation_steps
+        training_args.save_steps = self.args.save_steps
+        training_args.save_total_limit = self.args.save_total_limit
+        training_args.learning_rate = self.args.learning_rate
+        training_args.fp16 = self.args.fp16
+        training_args.remove_unused_columns = self.args.remove_unused_columns
+        training_args.logging_steps = self.args.logging_steps
+        self.training_args = training_args
+        logger.debug(f"training_args: {self.training_args}")
+        
         self.is_sweeping = False
         if self.args.manual_seed:
             random.seed(self.args.manual_seed)
@@ -161,15 +163,23 @@ class ChatGLMTune:
         self.model.lm_head = CastOutputToFloat(self.model.lm_head)
         self.model.config.use_cache = False
 
-        # setup peft
+        # setup peft, add lora config
+        if lora_path:
+            inference_mode = True
+        else:
+            inference_mode = False
         peft_config = LoraConfig(
             task_type=TaskType.CAUSAL_LM,
-            inference_mode=False,
+            inference_mode=inference_mode,
             r=self.args.lora_rank,
             lora_alpha=32,
             lora_dropout=0.1,
         )
         self.model = get_peft_model(self.model, peft_config)
+        if lora_path:
+            self.model.load_state_dict(torch.load(lora_path), strict=False)
+            torch.set_default_tensor_type(torch.cuda.FloatTensor)
+
 
     @staticmethod
     def get_masks_and_position_ids(seq_len, context_length, device, gmask=False, position_encoding_2d=True):
@@ -332,6 +342,7 @@ class ChatGLMTune:
 
         # load dataset
         train_dataset = self.build_dataset(train_data, max_seq_length=256)
+        train_dataset = train_dataset.select(range(2000))
         logger.debug(f"dataset: {train_dataset} first row: {next(iter(train_dataset))}")
 
         # start train
@@ -383,7 +394,6 @@ class ChatGLMTune:
             with torch.no_grad():
                 outputs = self.model.generate(
                     input_ids=inputs['input_ids'],
-                    attention_mask=inputs['attention_mask'],
                     num_beams=self.args.num_beams,
                     max_length=self.args.max_length,
                     repetition_penalty=self.args.repetition_penalty,
