@@ -17,7 +17,6 @@ from tqdm.auto import tqdm
 from transformers import AutoConfig, AutoTokenizer, Trainer
 from transformers.trainer import TRAINING_ARGS_NAME
 from transformers import TrainingArguments
-from transformers.generation.logits_process import LogitsProcessor
 from transformers.generation.utils import LogitsProcessorList
 from .chatglm_utils import (
     ChatGLMForConditionalGeneration,
@@ -384,6 +383,8 @@ class ChatGLMTune:
         :param kwargs:
         :return: response, history
         """
+        self._move_model_to_device()
+        self.model.eval()
         if history is None:
             history = []
         if not history:
@@ -393,10 +394,7 @@ class ChatGLMTune:
             for i, (old_query, response) in enumerate(history):
                 prompt += "[Round {}]\n问：{}\n答：{}\n".format(i, old_query, response)
             prompt += "[Round {}]\n问：{}\n答：".format(len(history), query)
-        to_predict = [prompt]
-
-        # outputs = outputs.tolist()[0][len(input_ids["input_ids"][0]):]
-        response = self.predict(to_predict, logits_processor=logits_processor, **kwargs)[0]
+        response = self.predict([prompt], logits_processor=logits_processor, **kwargs)[0]
         response = response.strip()
         history = history + [(query, response)]
         return response, history
