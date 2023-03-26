@@ -109,7 +109,7 @@ class ModelArgs:
     save_eval_checkpoints: bool = True
     save_model_every_epoch: bool = False
     save_optimizer_and_scheduler: bool = True
-    save_steps: int = 2000
+    save_steps: int = 1000
     scheduler: str = "linear_schedule_with_warmup"
     silent: bool = False
     skip_special_tokens: bool = True
@@ -190,7 +190,6 @@ class ChatGLMArgs(ModelArgs):
     max_steps = -1
     per_device_train_batch_size = 2
     gradient_accumulation_steps = 1
-    save_steps = 1000
     save_total_limit = 2
     remove_unused_columns = False
     logging_steps = 50

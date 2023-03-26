@@ -8,6 +8,7 @@ import random
 from typing import Optional, Tuple, Union, List, Callable
 
 import numpy as np
+from sympy import true
 import torch
 import torch.nn as nn
 from datasets import load_dataset
@@ -259,10 +260,10 @@ class ChatGLMTune:
             input_ids.append(_ids)
             attention_mask_list.append(attention_mask)
             position_ids_list.append(position_ids)
-        input_ids = torch.stack(input_ids).to(self.device)
-        labels = torch.stack(labels_list).to(self.device)
-        attention_mask = torch.stack(attention_mask_list).to(self.device)
-        position_ids = torch.stack(position_ids_list).to(self.device)
+        input_ids = torch.stack(input_ids)
+        labels = torch.stack(labels_list)
+        attention_mask = torch.stack(attention_mask_list)
+        position_ids = torch.stack(position_ids_list)
         return {
             "input_ids": input_ids,
             "labels": labels,
@@ -355,6 +356,8 @@ class ChatGLMTune:
         training_args.fp16 = self.args.fp16
         training_args.remove_unused_columns = self.args.remove_unused_columns
         training_args.logging_steps = self.args.logging_steps
+        training_args.overwrite_output_dir = self.args.overwrite_output_dir
+        training_args.do_train = True
         logger.debug(f"training_args: {training_args}")
         trainer = FinetuneTrainer(
             model=self.model,
