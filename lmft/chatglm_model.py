@@ -5,10 +5,9 @@
 """
 import os
 import random
-from typing import Optional, Tuple, Union, List, Callable
+from typing import Tuple, List
 
 import numpy as np
-from sympy import true
 import torch
 import torch.nn as nn
 from datasets import load_dataset
@@ -16,9 +15,10 @@ from loguru import logger
 from peft import get_peft_model, LoraConfig, TaskType
 from tqdm.auto import tqdm
 from transformers import AutoConfig, AutoTokenizer, Trainer
-from transformers.trainer import TRAINING_ARGS_NAME
 from transformers import TrainingArguments
 from transformers.generation.utils import LogitsProcessorList
+from transformers.trainer import TRAINING_ARGS_NAME
+
 from .chatglm_utils import (
     ChatGLMForConditionalGeneration,
     ChatGLMArgs,
