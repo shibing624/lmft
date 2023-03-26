@@ -15,8 +15,8 @@ from peft import get_peft_model, LoraConfig, TaskType
 from tqdm.auto import tqdm
 from transformers import AutoConfig, AutoTokenizer, Trainer
 from transformers.trainer import TRAINING_ARGS_NAME
-
-from .chatglm_utils import ChatGLMForConditionalGeneration, ChatGLMArgs, ChatGLMTrainingArguments
+from transformers import TrainingArguments
+from .chatglm_utils import ChatGLMForConditionalGeneration, ChatGLMArgs
 
 try:
     import wandb
@@ -84,7 +84,19 @@ class ChatGLMTune:
             **kwargs (optional): For providing proxies, force_download, resume_download, cache_dir and other options specific to the 'from_pretrained' implementation where this will be supplied.
         """  # noqa: ignore flake8"
         model_type = model_type.lower()
-        self.training_args = ChatGLMTrainingArguments()
+        training_args = TrainingArguments("outputs/")
+        training_args.output_dir: str = "outputs/"
+        training_args.num_train_epochs = 1
+        training_args.max_steps = -1
+        training_args.per_device_train_batch_size = 2
+        training_args.gradient_accumulation_steps = 1
+        training_args.save_steps = 1000
+        training_args.save_total_limit = 2
+        training_args.learning_rate = 2e-5
+        training_args.fp16 = True
+        training_args.remove_unused_columns = False
+        training_args.logging_steps = 50
+        self.training_args = training_args
         logger.info(f"training_args: {self.training_args}")
 
         self.args = self._load_model_args(model_name)
@@ -119,7 +131,7 @@ class ChatGLMTune:
         self.results = {}
         config_class, model_class, tokenizer_class = MODEL_CLASSES[model_type]
         if model_name is None:
-            model_name = "THUDM/chatglm-6b-int4-qe"
+            model_name = "THUDM/chatglm-6b"
         if torch.cuda.is_available():
             self.model = model_class.from_pretrained(model_name,
                                                      trust_remote_code=True).half().cuda()

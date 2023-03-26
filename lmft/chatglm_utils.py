@@ -19,7 +19,6 @@ from loguru import logger
 from torch import nn
 from torch.nn import CrossEntropyLoss, LayerNorm
 from torch.nn.utils import skip_init
-from transformers import TrainingArguments
 from transformers.configuration_utils import PretrainedConfig
 from transformers.generation.logits_process import LogitsProcessor
 from transformers.generation.utils import LogitsProcessorList, StoppingCriteriaList, GenerationConfig
@@ -178,25 +177,10 @@ class ChatGLMArgs(ModelArgs):
     special_tokens_list: list = field(default_factory=list)
     top_k: float = None
     top_p: float = None
-    model_name_or_path: Optional[str] = field(default="THUDM/chatglm-6b-int4-qe")
+    model_name_or_path: Optional[str] = field(default="THUDM/chatglm-6b")
     dataset_name_or_path: Optional[str] = field(default="shibing624/alpaca-zh")
     lora_name: str = field(default="chatglm-lora.pt")
     lora_rank: int = field(default=8)
-
-
-@dataclass
-class ChatGLMTrainingArguments(TrainingArguments):
-    output_dir: str = "outputs/"
-    num_train_epochs = 1
-    max_steps = -1
-    per_device_train_batch_size = 2
-    gradient_accumulation_steps = 1
-    save_steps = 1000
-    save_total_limit = 2
-    learning_rate = 2e-5
-    fp16 = True
-    remove_unused_columns = False
-    logging_steps = 50
 
 
 class ChatGLMConfig(PretrainedConfig):
