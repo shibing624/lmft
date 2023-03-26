@@ -84,7 +84,7 @@ class ChatGLMTune:
             **kwargs (optional): For providing proxies, force_download, resume_download, cache_dir and other options specific to the 'from_pretrained' implementation where this will be supplied.
         """  # noqa: ignore flake8"
         model_type = model_type.lower()
-        training_args = TrainingArguments("outputs/")
+        training_args = TrainingArguments(model_type)
         training_args.output_dir: str = "outputs/"
         training_args.num_train_epochs = 1
         training_args.max_steps = -1
