@@ -1,42 +1,45 @@
-""" PyTorch ChatGLM model. """
+# -*- coding: utf-8 -*-
+"""
+@author:XuMing(xuming624@qq.com)
+@description: 
+"""
 
-import math
 import copy
+import json
+import math
 import os
 import warnings
+from dataclasses import asdict, dataclass, field
+from typing import Optional, Tuple, Union, List, Callable
 
 import torch
-import torch.utils.checkpoint
 import torch.nn.functional as F
+import torch.utils.checkpoint
+from loguru import logger
 from torch import nn
 from torch.nn import CrossEntropyLoss, LayerNorm
 from torch.nn.utils import skip_init
-from typing import Optional, Tuple, Union, List, Callable
-
-from transformers.utils import (
-    add_code_sample_docstrings,
-    add_start_docstrings,
-    add_start_docstrings_to_model_forward,
-)
+from transformers import TrainingArguments
+from transformers.configuration_utils import PretrainedConfig
+from transformers.generation.logits_process import LogitsProcessor
+from transformers.generation.utils import LogitsProcessorList, StoppingCriteriaList, GenerationConfig
 from transformers.modeling_outputs import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
     BaseModelOutputWithPastAndCrossAttentions,
 )
 from transformers.modeling_utils import PreTrainedModel
-from transformers.utils import logging
-from transformers.generation.logits_process import LogitsProcessor
-from transformers.generation.utils import LogitsProcessorList, StoppingCriteriaList, GenerationConfig
-
-from .configuration_chatglm import ChatGLMConfig
+from transformers.utils import (
+    add_code_sample_docstrings,
+    add_start_docstrings,
+    add_start_docstrings_to_model_forward,
+)
 
 # flags required to enable jit fusion kernels
 torch._C._jit_set_profiling_mode(False)
 torch._C._jit_set_profiling_executor(False)
 torch._C._jit_override_can_fuse_on_cpu(True)
 torch._C._jit_override_can_fuse_on_gpu(True)
-
-logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "THUDM/ChatGLM-6B"
 _CONFIG_FOR_DOC = "ChatGLM6BConfig"
@@ -45,6 +48,226 @@ CHATGLM_6B_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "THUDM/chatglm-6b",
     # See all ChatGLM-6B models at https://huggingface.co/models?filter=chatglm
 ]
+
+
+@dataclass
+class ModelArgs:
+    adafactor_beta1: float = None
+    adafactor_clip_threshold: float = 1.0
+    adafactor_decay_rate: float = -0.8
+    adafactor_eps: tuple = field(default_factory=lambda: (1e-30, 1e-3))
+    adafactor_relative_step: bool = True
+    adafactor_scale_parameter: bool = True
+    adafactor_warmup_init: bool = True
+    adam_epsilon: float = 1e-8
+    best_model_dir: str = "outputs/best_model"
+    cache_dir: str = "cache_dir/"
+    config: dict = field(default_factory=dict)
+    cosine_schedule_num_cycles: float = 0.5
+    custom_layer_parameters: list = field(default_factory=list)
+    custom_parameter_groups: list = field(default_factory=list)
+    dataloader_num_workers: int = 0
+    do_lower_case: bool = False
+    dynamic_quantize: bool = False
+    early_stopping_consider_epochs: bool = False
+    early_stopping_delta: float = 0
+    early_stopping_metric: str = "eval_loss"
+    early_stopping_metric_minimize: bool = True
+    early_stopping_patience: int = 3
+    encoding: str = "utf-8"
+    eval_batch_size: int = 8
+    evaluate_during_training: bool = False
+    evaluate_during_training_silent: bool = True
+    evaluate_during_training_steps: int = 2000
+    evaluate_during_training_verbose: bool = False
+    evaluate_each_epoch: bool = True
+    fp16: bool = False
+    gradient_accumulation_steps: int = 1
+    learning_rate: float = 4e-5
+    local_rank: int = -1
+    logging_steps: int = 50
+    manual_seed: int = None
+    max_grad_norm: float = 1.0
+    max_seq_length: int = 128
+    model_name: str = None
+    model_type: str = None
+    multiprocessing_chunksize: int = -1
+    n_gpu: int = 1
+    no_cache: bool = False
+    no_save: bool = False
+    not_saved_args: list = field(default_factory=list)
+    num_train_epochs: int = 1
+    optimizer: str = "AdamW"
+    output_dir: str = "outputs/"
+    overwrite_output_dir: bool = False
+    polynomial_decay_schedule_lr_end: float = 1e-7
+    polynomial_decay_schedule_power: float = 1.0
+    process_count: int = 1
+    quantized_model: bool = False
+    reprocess_input_data: bool = True
+    save_best_model: bool = True
+    save_eval_checkpoints: bool = True
+    save_model_every_epoch: bool = False
+    save_optimizer_and_scheduler: bool = True
+    save_steps: int = 2000
+    scheduler: str = "linear_schedule_with_warmup"
+    silent: bool = False
+    skip_special_tokens: bool = True
+    tensorboard_dir: str = None
+    thread_count: int = None
+    tokenizer_name: str = None
+    tokenizer_type: str = None
+    train_batch_size: int = 8
+    train_custom_parameters_only: bool = False
+    use_cached_eval_features: bool = False
+    use_early_stopping: bool = False
+    use_hf_datasets: bool = False
+    use_multiprocessing: bool = False
+    use_multiprocessing_for_evaluation: bool = False
+    wandb_kwargs: dict = field(default_factory=dict)
+    wandb_project: str = None
+    warmup_ratio: float = 0.06
+    warmup_steps: int = 0
+    weight_decay: float = 0.0
+
+    def update_from_dict(self, new_values):
+        if isinstance(new_values, dict):
+            for key, value in new_values.items():
+                setattr(self, key, value)
+        else:
+            raise (TypeError(f"{new_values} is not a Python dict."))
+
+    def get_args_for_saving(self):
+        args_for_saving = {key: value for key, value in asdict(self).items() if key not in self.not_saved_args}
+        return args_for_saving
+
+    def save(self, output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+        with open(os.path.join(output_dir, "model_args.json"), "w") as f:
+            args_dict = self.get_args_for_saving()
+            if args_dict["tokenizer_type"] is not None and not isinstance(args_dict["tokenizer_type"], str):
+                args_dict["tokenizer_type"] = type(args_dict["tokenizer_type"]).__name__
+            json.dump(args_dict, f)
+
+    def load(self, input_dir):
+        if input_dir:
+            model_args_file = os.path.join(input_dir, "model_args.json")
+            if os.path.isfile(model_args_file):
+                with open(model_args_file, "r") as f:
+                    model_args = json.load(f)
+
+                self.update_from_dict(model_args)
+
+
+@dataclass
+class ChatGLMArgs(ModelArgs):
+    """
+    Model args for a CopyT5Model
+    """
+
+    model_class: str = "ChatGLMArgs"
+    max_length: int = 256
+    do_sample: bool = False
+    early_stopping: bool = True
+    evaluate_generated_text: bool = False
+    length_penalty: float = 2.0
+    num_beams: int = 3
+    num_return_sequences: int = 1
+    repetition_penalty: float = 1.0
+    temperature: float = 0
+    special_tokens_list: list = field(default_factory=list)
+    top_k: float = None
+    top_p: float = None
+    model_name_or_path: Optional[str] = field(default="THUDM/chatglm-6b")
+    dataset_name_or_path: Optional[str] = field(default="shibing624/alpaca-zh")
+    lora_name: str = field(default="chatglm-lora.pt")
+    lora_rank: int = field(default=8)
+
+
+@dataclass
+class ChatGLMTrainingArguments(TrainingArguments):
+    output_dir: str = "outputs/"
+    num_train_epochs = 1
+    max_steps = -1
+    per_device_train_batch_size = 2
+    gradient_accumulation_steps = 1
+    save_steps = 1000
+    save_total_limit = 2
+    learning_rate = 2e-5
+    fp16 = True
+    remove_unused_columns = False
+    logging_steps = 50
+
+
+class ChatGLMConfig(PretrainedConfig):
+    r"""
+    This is the configuration class to store the configuration of a [`~ChatGLMModel`].
+    It is used to instantiate an ChatGLM model according to the specified arguments, defining the model
+    architecture. Instantiating a configuration with the defaults will yield a similar configuration to that of
+    the ChatGLM-6B [THUDM/ChatGLM-6B](https://huggingface.co/THUDM/chatglm-6b) architecture.
+
+    Configuration objects inherit from  [`PretrainedConfig`] and can be used
+    to control the model outputs. Read the documentation from  [`PretrainedConfig`]
+    for more information.
+
+
+    Args:
+        vocab_size (`int`, *optional*, defaults to 150528):
+            Vocabulary size of the ChatGLM-6B model. Defines the number of different tokens that can be represented by the
+            `inputs_ids` passed when calling [`~ChatGLMModel`] or
+            [`~TFChatGLMModel`].
+        hidden_size (`int`, *optional*, defaults to 4096):
+            Dimension of the encoder layers and the pooler layer.
+        num_hidden_layers (`int`, *optional*, defaults to 28):
+            Number of hidden layers in the Transformer encoder.
+        num_attention_heads (`int`, *optional*, defaults to 32):
+            Number of attention heads for each attention layer in the Transformer encoder.
+        inner_hidden_size (`int`, *optional*, defaults to 16384):
+            Dimension of the "intermediate" (i.e., feed-forward) layer in the Transformer encoder.
+        max_sequence_length (`int`, *optional*, defaults to 512):
+            The maximum sequence length that this model might ever be used with.
+            Typically set this to something large just in case (e.g., 512 or 1024 or 2048).
+        layernorm_epsilon (`float`, *optional*, defaults to 1e-5):
+            The epsilon used by the layer normalization layers.
+        use_cache (`bool`, *optional*, defaults to `True`):
+            Whether the model should return the last key/values attentions (not used by all models).
+    """
+    model_type = "chatglm"
+
+    def __init__(
+            self,
+            vocab_size=150528,
+            hidden_size=4096,
+            num_layers=28,
+            num_attention_heads=32,
+            layernorm_epsilon=1e-5,
+            use_cache=False,
+            bos_token_id=150004,
+            eos_token_id=150005,
+            pad_token_id=0,
+            max_sequence_length=2048,
+            inner_hidden_size=16384,
+            position_encoding_2d=True,
+            **kwargs
+    ):
+        self.num_layers = num_layers
+        self.vocab_size = vocab_size
+        self.hidden_size = hidden_size
+        self.num_attention_heads = num_attention_heads
+        self.max_sequence_length = max_sequence_length
+        self.layernorm_epsilon = layernorm_epsilon
+        self.inner_hidden_size = inner_hidden_size
+        self.use_cache = use_cache
+        self.bos_token_id = bos_token_id
+        self.eos_token_id = eos_token_id
+        self.pad_token_id = pad_token_id
+        self.position_encoding_2d = position_encoding_2d
+        super().__init__(
+            pad_token_id=pad_token_id,
+            bos_token_id=bos_token_id,
+            eos_token_id=eos_token_id,
+            **kwargs
+        )
 
 
 class InvalidScoreLogitsProcessor(LogitsProcessor):
