@@ -87,7 +87,7 @@ class ModelArgs:
     logging_steps: int = 50
     manual_seed: int = None
     max_grad_norm: float = 1.0
-    max_seq_length: int = 128
+    max_seq_length: int = 384
     model_name: str = None
     model_type: str = None
     multiprocessing_chunksize: int = -1
@@ -165,7 +165,8 @@ class ChatGLMArgs(ModelArgs):
     """
 
     model_class: str = "ChatGLMArgs"
-    max_length: int = 256
+    max_seq_length = 384
+    max_length = 128
     do_sample: bool = False
     early_stopping: bool = True
     evaluate_generated_text: bool = False
@@ -179,8 +180,11 @@ class ChatGLMArgs(ModelArgs):
     top_p: float = None
     model_name_or_path: Optional[str] = field(default="THUDM/chatglm-6b")
     dataset_name_or_path: Optional[str] = field(default="shibing624/alpaca-zh")
+    use_lora: bool = True
     lora_name: str = field(default="lora.pt")
     lora_rank: int = field(default=8)
+    lora_alpha = 32
+    lora_dropout = 0.1
     num_train_epochs = 1
     max_steps = -1
     per_device_train_batch_size = 2

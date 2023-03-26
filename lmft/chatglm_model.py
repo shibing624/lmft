@@ -67,7 +67,6 @@ class ChatGLMTune:
             model_type,
             model_name,
             args=None,
-            lora_path=None,
             use_cuda=has_cuda,
             cuda_device=-1,
             **kwargs,
@@ -91,22 +90,7 @@ class ChatGLMTune:
             self.args.update_from_dict(args)
         elif isinstance(args, ChatGLMArgs):
             self.args = args
-        
-        training_args = TrainingArguments(self.args.output_dir)
-        training_args.output_dir: str = self.args.output_dir
-        training_args.num_train_epochs = self.args.num_train_epochs
-        training_args.max_steps = self.args.max_steps
-        training_args.per_device_train_batch_size = self.args.per_device_train_batch_size
-        training_args.gradient_accumulation_steps = self.args.gradient_accumulation_steps
-        training_args.save_steps = self.args.save_steps
-        training_args.save_total_limit = self.args.save_total_limit
-        training_args.learning_rate = self.args.learning_rate
-        training_args.fp16 = self.args.fp16
-        training_args.remove_unused_columns = self.args.remove_unused_columns
-        training_args.logging_steps = self.args.logging_steps
-        self.training_args = training_args
-        logger.debug(f"training_args: {self.training_args}")
-        
+
         self.is_sweeping = False
         if self.args.manual_seed:
             random.seed(self.args.manual_seed)
@@ -155,31 +139,6 @@ class ChatGLMTune:
             self.args.model_name = "ChatGLM_from_scratch"
         else:
             self.args.model_name = model_name
-
-        self.model.gradient_checkpointing_enable()
-        self.model.enable_input_require_grads()
-        self.model.is_parallelizable = True
-        self.model.model_parallel = True
-        self.model.lm_head = CastOutputToFloat(self.model.lm_head)
-        self.model.config.use_cache = False
-
-        # setup peft, add lora config
-        if lora_path and os.path.exists(lora_path):
-            inference_mode = True
-        else:
-            inference_mode = False
-        peft_config = LoraConfig(
-            task_type=TaskType.CAUSAL_LM,
-            inference_mode=inference_mode,
-            r=self.args.lora_rank,
-            lora_alpha=32,
-            lora_dropout=0.1,
-        )
-        self.model = get_peft_model(self.model, peft_config)
-        if lora_path and os.path.exists(lora_path):
-            self.model.load_state_dict(torch.load(lora_path), strict=False)
-            torch.set_default_tensor_type(torch.cuda.FloatTensor)
-
 
     @staticmethod
     def get_masks_and_position_ids(seq_len, context_length, device, gmask=False, position_encoding_2d=True):
@@ -336,20 +295,50 @@ class ChatGLMTune:
                 "Output directory ({}) already exists and is not empty."
                 " Set args.overwrite_output_dir = True to overcome.".format(output_dir)
             )
+        # update model train config
+        self.model.gradient_checkpointing_enable()
+        self.model.enable_input_require_grads()
+        self.model.is_parallelizable = True
+        self.model.model_parallel = True
+        self.model.lm_head = CastOutputToFloat(self.model.lm_head)
+        self.model.config.use_cache = False
 
+        # setup peft, add lora config
+        if self.args.use_lora:
+            peft_config = LoraConfig(
+                task_type=TaskType.CAUSAL_LM,
+                inference_mode=False,
+                r=self.args.lora_rank,
+                lora_alpha=self.args.lora_alpha,
+                lora_dropout=self.args.lora_dropout,
+            )
+            self.model = get_peft_model(self.model, peft_config)
         self._move_model_to_device()
         os.makedirs(output_dir, exist_ok=True)
 
         # load dataset
-        train_dataset = self.build_dataset(train_data, max_seq_length=256)
-        train_dataset = train_dataset.select(range(2000))
+        train_dataset = self.build_dataset(train_data, max_seq_length=self.args.max_seq_length)
+        # train_dataset = train_dataset.select(range(2000))
         logger.debug(f"dataset: {train_dataset} first row: {next(iter(train_dataset))}")
 
         # start train
+        training_args = TrainingArguments(self.args.output_dir)
+        training_args.output_dir = self.args.output_dir
+        training_args.num_train_epochs = self.args.num_train_epochs
+        training_args.max_steps = self.args.max_steps
+        training_args.per_device_train_batch_size = self.args.per_device_train_batch_size
+        training_args.gradient_accumulation_steps = self.args.gradient_accumulation_steps
+        training_args.save_steps = self.args.save_steps
+        training_args.save_total_limit = self.args.save_total_limit
+        training_args.learning_rate = self.args.learning_rate
+        training_args.fp16 = self.args.fp16
+        training_args.remove_unused_columns = self.args.remove_unused_columns
+        training_args.logging_steps = self.args.logging_steps
+        logger.debug(f"training_args: {training_args}")
         trainer = FinetuneTrainer(
             model=self.model,
             train_dataset=train_dataset,
-            args=self.training_args,
+            args=training_args,
             tokenizer=self.tokenizer,
             data_collator=self.data_collator,
         )
@@ -377,6 +366,23 @@ class ChatGLMTune:
         """  # noqa: ignore flake8"
 
         self._move_model_to_device()
+        if self.args.use_lora:
+            peft_config = LoraConfig(
+                task_type=TaskType.CAUSAL_LM,
+                inference_mode=True,
+                r=self.args.lora_rank,
+                lora_alpha=self.args.lora_alpha,
+                lora_dropout=self.args.lora_dropout,
+            )
+
+            self.model = get_peft_model(self.model, peft_config)
+            lora_path = os.path.join(self.args.output_dir, self.args.lora_name)
+            if lora_path and os.path.exists(lora_path):
+                self.model.load_state_dict(torch.load(lora_path), strict=False)
+                logger.info(f"Loaded lora model from {lora_path}")
+            if torch.cuda.is_available():
+                torch.set_default_tensor_type(torch.cuda.FloatTensor)
+
         self.model.eval()
 
         all_outputs = []
