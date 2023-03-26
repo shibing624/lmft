@@ -164,7 +164,7 @@ class ChatGLMTune:
         self.model.config.use_cache = False
 
         # setup peft, add lora config
-        if lora_path:
+        if lora_path and os.path.exists(lora_path):
             inference_mode = True
         else:
             inference_mode = False
@@ -176,7 +176,7 @@ class ChatGLMTune:
             lora_dropout=0.1,
         )
         self.model = get_peft_model(self.model, peft_config)
-        if lora_path:
+        if lora_path and os.path.exists(lora_path):
             self.model.load_state_dict(torch.load(lora_path), strict=False)
             torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
