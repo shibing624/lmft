@@ -122,10 +122,12 @@ class ChatGLMTune:
         self.results = {}
         config_class, model_class, tokenizer_class = MODEL_CLASSES[model_type]
         if model_name is None:
-            self.config = self.args.config
-            self.model = model_class(config=self.config)
+            model_name = "THUDM/chatglm-6b"
+        if torch.cuda.is_available():
+            self.model = model_class.from_pretrained(model_name, 
+                trust_remote_code=True).half().cuda()
         else:
-            self.model = model_class.from_pretrained(model_name, trust_remote_code=True, device_map="auto")
+            self.model = AutoModel.from_pretrained(model_name, trust_remote_code=True).float()
 
         self.tokenizer_class = tokenizer_class
         if self.args.tokenizer_name:
@@ -143,10 +145,6 @@ class ChatGLMTune:
         else:
             self.args.model_name = model_name
 
-        # tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, trust_remote_code=True)
-        # model = ChatGLMForConditionalGeneration.from_pretrained(
-        #     model_args.model_name_or_path, trust_remote_code=True, device_map="auto"
-        # ).half().cuda()
         self.model.gradient_checkpointing_enable()
         self.model.enable_input_require_grads()
         self.model.is_parallelizable = True
@@ -408,7 +406,7 @@ class ChatGLMTune:
             return outputs
 
     def _move_model_to_device(self):
-        self.model.to(self.device)
+        self.model.to(self.device, fp16=self.args.fp16)
 
     def save_model(
             self, output_dir=None, optimizer=None, scheduler=None, model=None, results=None
