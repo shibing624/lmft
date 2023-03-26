@@ -16,7 +16,7 @@ from tqdm.auto import tqdm
 from transformers import AutoConfig, AutoTokenizer, HfArgumentParser, Trainer
 from transformers.trainer import TRAINING_ARGS_NAME
 
-from chatglm_utils import ChatGLMForConditionalGeneration, ChatGLMArgs, ChatGLMTrainingArguments
+from .chatglm_utils import ChatGLMForConditionalGeneration, ChatGLMArgs, ChatGLMTrainingArguments
 
 try:
     import wandb
@@ -87,7 +87,7 @@ class ChatGLMTune:
             **kwargs (optional): For providing proxies, force_download, resume_download, cache_dir and other options specific to the 'from_pretrained' implementation where this will be supplied.
         """  # noqa: ignore flake8"
         model_type = model_type.lower()
-        self.training_args = HfArgumentParser(ChatGLMTrainingArguments).parse_args_into_dataclasses()
+        self.training_args = ChatGLMTrainingArguments.parse_args_into_dataclasses()
         logger.info(f"training_args: {self.training_args}")
 
         self.args = self._load_model_args(model_name)
