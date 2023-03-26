@@ -12,7 +12,7 @@ from lmft.chatglm_model import ChatGLMTune
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", default="THUDM/chatglm-6b", type=str)
+    parser.add_argument("--model_name", default="THUDM/chatglm-6b-int4-qe", type=str)
     parser.add_argument("--train_data", default='shibing624/alpaca-zh', type=str)
 
     args = parser.parse_args()

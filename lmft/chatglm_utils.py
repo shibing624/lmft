@@ -178,7 +178,7 @@ class ChatGLMArgs(ModelArgs):
     special_tokens_list: list = field(default_factory=list)
     top_k: float = None
     top_p: float = None
-    model_name_or_path: Optional[str] = field(default="THUDM/chatglm-6b")
+    model_name_or_path: Optional[str] = field(default="THUDM/chatglm-6b-int4-qe")
     dataset_name_or_path: Optional[str] = field(default="shibing624/alpaca-zh")
     lora_name: str = field(default="chatglm-lora.pt")
     lora_rank: int = field(default=8)

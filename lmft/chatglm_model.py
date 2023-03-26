@@ -33,9 +33,6 @@ MODEL_CLASSES = {
     "chatglm": (AutoConfig, ChatGLMForConditionalGeneration, AutoTokenizer),
 }
 
-SOP_TOKEN_ID = 150004
-PAD_TOKEN_ID = 20003
-
 
 def save_tunable_parameters(model, path):
     saved_params = {
@@ -87,7 +84,7 @@ class ChatGLMTune:
             **kwargs (optional): For providing proxies, force_download, resume_download, cache_dir and other options specific to the 'from_pretrained' implementation where this will be supplied.
         """  # noqa: ignore flake8"
         model_type = model_type.lower()
-        self.training_args = ChatGLMTrainingArguments
+        self.training_args = ChatGLMTrainingArguments()
         logger.info(f"training_args: {self.training_args}")
 
         self.args = self._load_model_args(model_name)
@@ -122,12 +119,12 @@ class ChatGLMTune:
         self.results = {}
         config_class, model_class, tokenizer_class = MODEL_CLASSES[model_type]
         if model_name is None:
-            model_name = "THUDM/chatglm-6b"
+            model_name = "THUDM/chatglm-6b-int4-qe"
         if torch.cuda.is_available():
-            self.model = model_class.from_pretrained(model_name, 
-                trust_remote_code=True).half().cuda()
+            self.model = model_class.from_pretrained(model_name,
+                                                     trust_remote_code=True).half().cuda()
         else:
-            self.model = AutoModel.from_pretrained(model_name, trust_remote_code=True).float()
+            self.model = model_class.from_pretrained(model_name, trust_remote_code=True).float()
 
         self.tokenizer_class = tokenizer_class
         if self.args.tokenizer_name:
@@ -240,13 +237,13 @@ class ChatGLMTune:
         labels_list = []
         for ids_l, feature in sorted(zip(len_ids, batch), key=lambda x: -x[0]):
             ids = feature["input_ids"]
-            seq_len = ids.index(SOP_TOKEN_ID)
+            seq_len = ids.index(self.tokenizer.sop_token_id)
             labels = (
                     [-100] * (seq_len - 1)
                     + ids[(seq_len - 1):]
                     + [-100] * (longest - ids_l)
             )
-            ids = ids + [PAD_TOKEN_ID] * (longest - ids_l)
+            ids = ids + [self.tokenizer.pad_token_id] * (longest - ids_l)
             _ids = torch.LongTensor(ids)
             attention_mask, position_ids = self.get_masks_and_position_ids(
                 seq_len, longest, _ids.device, gmask=False
@@ -406,7 +403,7 @@ class ChatGLMTune:
             return outputs
 
     def _move_model_to_device(self):
-        self.model.to(self.device, fp16=self.args.fp16)
+        self.model.to(self.device)
 
     def save_model(
             self, output_dir=None, optimizer=None, scheduler=None, model=None, results=None
