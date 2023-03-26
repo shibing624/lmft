@@ -13,7 +13,7 @@ from datasets import load_dataset
 from loguru import logger
 from peft import get_peft_model, LoraConfig, TaskType
 from tqdm.auto import tqdm
-from transformers import AutoConfig, AutoTokenizer, HfArgumentParser, Trainer
+from transformers import AutoConfig, AutoTokenizer, Trainer
 from transformers.trainer import TRAINING_ARGS_NAME
 
 from .chatglm_utils import ChatGLMForConditionalGeneration, ChatGLMArgs, ChatGLMTrainingArguments
@@ -87,7 +87,7 @@ class ChatGLMTune:
             **kwargs (optional): For providing proxies, force_download, resume_download, cache_dir and other options specific to the 'from_pretrained' implementation where this will be supplied.
         """  # noqa: ignore flake8"
         model_type = model_type.lower()
-        self.training_args = ChatGLMTrainingArguments.parse_args_into_dataclasses()
+        self.training_args = ChatGLMTrainingArguments
         logger.info(f"training_args: {self.training_args}")
 
         self.args = self._load_model_args(model_name)
@@ -272,7 +272,6 @@ class ChatGLMTune:
             self,
             train_data,
             output_dir=None,
-            show_running_loss=True,
             args=None,
             eval_data=None,
             verbose=True,
@@ -345,90 +344,6 @@ class ChatGLMTune:
                     self.args.model_name, output_dir
                 )
             )
-
-    def eval_model(
-            self, eval_data, output_dir=None, verbose=True, silent=False, **kwargs
-    ):
-        """
-        Evaluates the model on eval_data. Saves results to output_dir.
-
-        Args:
-            eval_data: Pandas DataFrame containing the 3 columns - `prefix`, `input_text`, `target_text`.
-                        - `prefix`: A string indicating the task to perform. (E.g. `"question"`, `"stsb"`)
-                        - `input_text`: The input text sequence. `prefix` is automatically prepended to form the full input. (<prefix>: <input_text>)
-                        - `target_text`: The target sequence
-            output_dir: The directory where model files will be saved. If not given, self.args.output_dir will be used.
-            verbose: If verbose, results will be printed to the console on completion of evaluation.
-            silent: If silent, tqdm progress bars will be hidden.
-            **kwargs: Additional metrics that should be used. Pass in the metrics as keyword arguments (name of metric: function to use).
-                        A metric function should take in two parameters. The first parameter will be the true labels, and the second parameter will be the predictions. Both inputs
-                        will be lists of strings. Note that this will slow down evaluation significantly as the predicted sequences need to be generated.
-        Returns:
-            results: Dictionary containing evaluation results.
-        """  # noqa: ignore flake8"
-
-        if not output_dir:
-            output_dir = self.args.output_dir
-
-        self._move_model_to_device()
-
-        eval_dataset = self.load_and_cache_examples(
-            eval_data, evaluate=True, verbose=verbose, silent=silent
-        )
-        os.makedirs(output_dir, exist_ok=True)
-
-        result = self.evaluate(
-            eval_dataset, output_dir, verbose=verbose, silent=silent, **kwargs
-        )
-        self.results.update(result)
-
-        if self.args.evaluate_generated_text:
-            if self.args.preprocess_inputs:
-                to_predict = [
-                    prefix + ": " + input_text
-                    for prefix, input_text in zip(
-                        eval_data["prefix"], eval_data["input_text"]
-                    )
-                ]
-            else:
-                to_predict = [
-                    prefix + input_text
-                    for prefix, input_text in zip(
-                        eval_data["prefix"], eval_data["input_text"]
-                    )
-                ]
-            preds = self.predict(to_predict)
-
-            result = self.compute_metrics(
-                eval_data["target_text"].tolist(), preds, **kwargs
-            )
-            self.results.update(result)
-
-        if verbose:
-            logger.info(self.results)
-
-        return self.results
-
-    def evaluate(self, eval_dataset, output_dir, verbose=True, silent=False, **kwargs):
-        """
-        Evaluates the model on eval_dataset.
-
-        Utility function to be used by the eval_model() method. Not intended to be used directly.
-        """
-
-        model = self.model
-        args = self.args
-        eval_output_dir = output_dir
-        device = self.device
-
-        results = {}
-
-        output_eval_file = os.path.join(eval_output_dir, "eval_results.txt")
-        with open(output_eval_file, "w") as writer:
-            for key in sorted(results.keys()):
-                writer.write("{} = {}\n".format(key, str(results[key])))
-
-        return results
 
     def predict(self, to_predict, split_on_space=False):
         """
