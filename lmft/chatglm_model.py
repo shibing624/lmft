@@ -257,10 +257,10 @@ class ChatGLMTune:
             input_ids.append(_ids)
             attention_mask_list.append(attention_mask)
             position_ids_list.append(position_ids)
-        input_ids = torch.stack(input_ids)
-        labels = torch.stack(labels_list)
-        attention_mask = torch.stack(attention_mask_list)
-        position_ids = torch.stack(position_ids_list)
+        input_ids = torch.stack(input_ids).to(self.device)
+        labels = torch.stack(labels_list).to(self.device)
+        attention_mask = torch.stack(attention_mask_list).to(self.device)
+        position_ids = torch.stack(position_ids_list).to(self.device)
         return {
             "input_ids": input_ids,
             "labels": labels,
