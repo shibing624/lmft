@@ -147,6 +147,23 @@ class ChatGLMTune:
         else:
             self.args.model_name = model_name
 
+        if self.args.use_lora:
+            lora_path = os.path.join(self.args.output_dir, self.args.lora_name)
+            if lora_path and os.path.exists(lora_path):
+                # infer with trained lora model
+                peft_config = LoraConfig(
+                    task_type=TaskType.CAUSAL_LM,
+                    inference_mode=True,
+                    r=self.args.lora_rank,
+                    lora_alpha=self.args.lora_alpha,
+                    lora_dropout=self.args.lora_dropout,
+                )
+                self.model = get_peft_model(self.model, peft_config)
+                self.model.load_state_dict(torch.load(lora_path), strict=False)
+                logger.info(f"Loaded lora model from {lora_path}")
+            if torch.cuda.is_available():
+                torch.set_default_tensor_type(torch.cuda.FloatTensor)
+
     @staticmethod
     def get_masks_and_position_ids(seq_len, context_length, device, gmask=False, position_encoding_2d=True):
         mask_position = (
@@ -359,6 +376,14 @@ class ChatGLMTune:
 
     @torch.no_grad()
     def chat(self, query: str, history: List[Tuple[str, str]] = None, logits_processor=None, **kwargs):
+        """
+        Chat with the model
+        :param query:
+        :param history:
+        :param logits_processor:
+        :param kwargs:
+        :return: response, history
+        """
         if history is None:
             history = []
         if not history:
@@ -377,36 +402,18 @@ class ChatGLMTune:
         return response, history
 
     @torch.no_grad()
-    def predict(self, to_predict, split_on_space=False, logits_processor=None, **kwargs):
+    def predict(self, sentences, logits_processor=None, **kwargs):
         """
         Performs predictions on a list of text.
 
         Args:
-            to_predict: A python list of text (str) to be sent to the model for prediction. 
-            split_on_space (optional): If True, input is english string, if False, input is chinese string.
+            sentences: A python list of text (str) to be sent to the model for prediction. 
+            logits_processor: A LogitsProcessor object that will be applied to the model's
 
         Returns:
             preds: A python list of the generated sequences.
         """  # noqa: ignore flake8"
 
-        if self.args.use_lora:
-            peft_config = LoraConfig(
-                task_type=TaskType.CAUSAL_LM,
-                inference_mode=True,
-                r=self.args.lora_rank,
-                lora_alpha=self.args.lora_alpha,
-                lora_dropout=self.args.lora_dropout,
-            )
-
-            self.model = get_peft_model(self.model, peft_config)
-            lora_path = os.path.join(self.args.output_dir, self.args.lora_name)
-            if lora_path and os.path.exists(lora_path):
-                self.model.load_state_dict(torch.load(lora_path), strict=False)
-                logger.info(f"Loaded lora model from {lora_path}")
-            else:
-                logger.warning(f"lora model not found at {lora_path}")
-            if torch.cuda.is_available():
-                torch.set_default_tensor_type(torch.cuda.FloatTensor)
         self._move_model_to_device()
         self.model.eval()
 
@@ -417,8 +424,8 @@ class ChatGLMTune:
         # Batching
         for batch in tqdm(
                 [
-                    to_predict[i: i + self.args.eval_batch_size]
-                    for i in range(0, len(to_predict), self.args.eval_batch_size)
+                    sentences[i: i + self.args.eval_batch_size]
+                    for i in range(0, len(sentences), self.args.eval_batch_size)
                 ],
                 desc="Generating outputs",
                 disable=self.args.silent,
@@ -434,27 +441,9 @@ class ChatGLMTune:
                 **kwargs
             }
             outputs = self.model.generate(**inputs, **gen_kwargs)
-
             all_outputs.extend(outputs.cpu().numpy())
-
-        outputs = [
-            self.tokenizer.decode(
-                output_id,
-                skip_special_tokens=self.args.skip_special_tokens,
-                clean_up_tokenization_spaces=True,
-            )
-            for output_id in all_outputs
-        ]
-        if not split_on_space:
-            outputs = [''.join(gen_text.split(' ')) for gen_text in outputs]
-
-        if self.args.num_return_sequences > 1:
-            return [
-                outputs[i: i + self.args.num_return_sequences]
-                for i in range(0, len(outputs), self.args.num_return_sequences)
-            ]
-        else:
-            return outputs
+        outputs = [self.tokenizer.decode(output_id) for output_id in all_outputs]
+        return outputs
 
     def _move_model_to_device(self):
         self.model.to(self.device)

@@ -166,7 +166,7 @@ class ChatGLMArgs(ModelArgs):
 
     model_class: str = "ChatGLMArgs"
     max_seq_length = 384
-    max_length = 128
+    max_length = 256
     do_sample: bool = True
     early_stopping: bool = True
     evaluate_generated_text: bool = False
