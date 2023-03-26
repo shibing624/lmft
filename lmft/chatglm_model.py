@@ -160,8 +160,8 @@ class ChatGLMTune:
                 self.model = get_peft_model(self.model, peft_config)
                 self.model.load_state_dict(torch.load(lora_path), strict=False)
                 logger.info(f"Loaded lora model from {lora_path}")
-            if torch.cuda.is_available():
-                torch.set_default_tensor_type(torch.cuda.FloatTensor)
+                if torch.cuda.is_available():
+                    torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
     @staticmethod
     def get_masks_and_position_ids(seq_len, context_length, device, gmask=False, position_encoding_2d=True):
@@ -213,6 +213,8 @@ class ChatGLMTune:
             ds = ds['train']
         else:
             ds = load_dataset(dataset_name_or_path, split="train")
+        if self.args.debug:
+            ds = ds.select(range(1000))
         ds = ds.rename_columns({"output": "target"})
         ds = ds.filter(lambda x: len(x["target"]) > 2, batched=False)
 
@@ -338,7 +340,6 @@ class ChatGLMTune:
 
         # load dataset
         train_dataset = self.build_dataset(train_data, max_seq_length=self.args.max_seq_length)
-        # train_dataset = train_dataset.select(range(2000))
         logger.debug(f"dataset: {train_dataset} first row: {next(iter(train_dataset))}")
 
         # start train

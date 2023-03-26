@@ -11,6 +11,7 @@ import os
 import warnings
 from dataclasses import asdict, dataclass, field
 from typing import Optional, Tuple, Union, List, Callable
+from sympy import false
 
 import torch
 import torch.nn.functional as F
@@ -80,9 +81,9 @@ class ModelArgs:
     evaluate_during_training_steps: int = 2000
     evaluate_during_training_verbose: bool = False
     evaluate_each_epoch: bool = True
-    fp16: bool = False
+    fp16: bool = True
     gradient_accumulation_steps: int = 1
-    learning_rate: float = 4e-5
+    learning_rate: float = 2e-5
     local_rank: int = -1
     logging_steps: int = 50
     manual_seed: int = None
@@ -165,7 +166,7 @@ class ChatGLMArgs(ModelArgs):
     """
 
     model_class: str = "ChatGLMArgs"
-    max_seq_length = 384
+    debug: bool = false
     max_length = 256
     do_sample: bool = True
     early_stopping: bool = True
@@ -191,8 +192,6 @@ class ChatGLMArgs(ModelArgs):
     gradient_accumulation_steps = 1
     save_steps = 1000
     save_total_limit = 2
-    learning_rate = 2e-5
-    fp16 = True
     remove_unused_columns = False
     logging_steps = 50
 
