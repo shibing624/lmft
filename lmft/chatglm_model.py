@@ -171,7 +171,8 @@ class ChatGLMTune:
         )
         self.model = get_peft_model(self.model, peft_config)
 
-    def get_masks_and_position_ids(self, seq_len, context_length, device, gmask=False, position_encoding_2d=True):
+    @staticmethod
+    def get_masks_and_position_ids(seq_len, context_length, device, gmask=False, position_encoding_2d=True):
         mask_position = (
                 seq_len - 2
         )  # is equal to `seq.index(mask_token)` or `seq.index(150001)`
@@ -249,8 +250,7 @@ class ChatGLMTune:
         labels_list = []
         for ids_l, feature in sorted(zip(len_ids, batch), key=lambda x: -x[0]):
             ids = feature["input_ids"]
-            SOP_TOKEN_ID = 150004
-            seq_len = ids.index(SOP_TOKEN_ID)
+            seq_len = ids.index(self.tokenizer.bos_token_id)
             labels = (
                     [-100] * (seq_len - 1)
                     + ids[(seq_len - 1):]

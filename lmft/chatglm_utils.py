@@ -179,7 +179,7 @@ class ChatGLMArgs(ModelArgs):
     top_p: float = None
     model_name_or_path: Optional[str] = field(default="THUDM/chatglm-6b")
     dataset_name_or_path: Optional[str] = field(default="shibing624/alpaca-zh")
-    lora_name: str = field(default="chatglm-lora.pt")
+    lora_name: str = field(default="lora.pt")
     lora_rank: int = field(default=8)
 
 
