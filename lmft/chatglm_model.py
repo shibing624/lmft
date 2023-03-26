@@ -258,10 +258,7 @@ class ChatGLMTune:
         Trains the model using 'train_data'
 
         Args:
-            train_data: Pandas DataFrame containing the 3 columns - `prefix`, `input_text`, `target_text`.
-                        - `prefix`: A string indicating the task to perform. (E.g. `"question"`, `"stsb"`)
-                        - `input_text`: The input text sequence. `prefix` is automatically prepended to form the full input. (<prefix>: <input_text>)
-                        - `target_text`: The target sequence
+            train_data: datasets Dataset object or path to file containing training data
             output_dir: The directory where model files will be saved. If not given, self.args.output_dir will be used.
             show_running_loss (optional): Set to False to prevent running loss from being printed to console. Defaults to True.
             args (optional): Optional changes to the args dict of the model. Any changes made will persist for the model.
@@ -365,7 +362,6 @@ class ChatGLMTune:
             preds: A python list of the generated sequences.
         """  # noqa: ignore flake8"
 
-        self._move_model_to_device()
         if self.args.use_lora:
             peft_config = LoraConfig(
                 task_type=TaskType.CAUSAL_LM,
@@ -380,9 +376,11 @@ class ChatGLMTune:
             if lora_path and os.path.exists(lora_path):
                 self.model.load_state_dict(torch.load(lora_path), strict=False)
                 logger.info(f"Loaded lora model from {lora_path}")
+            else:
+                logger.warning(f"lora model not found at {lora_path}")
             if torch.cuda.is_available():
                 torch.set_default_tensor_type(torch.cuda.FloatTensor)
-
+        self._move_model_to_device()
         self.model.eval()
 
         all_outputs = []
