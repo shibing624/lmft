@@ -5,6 +5,7 @@
 """
 import os
 import random
+from typing import Optional, Tuple, Union, List, Callable
 
 import numpy as np
 import torch
@@ -16,7 +17,13 @@ from tqdm.auto import tqdm
 from transformers import AutoConfig, AutoTokenizer, Trainer
 from transformers.trainer import TRAINING_ARGS_NAME
 from transformers import TrainingArguments
-from .chatglm_utils import ChatGLMForConditionalGeneration, ChatGLMArgs
+from transformers.generation.logits_process import LogitsProcessor
+from transformers.generation.utils import LogitsProcessorList
+from .chatglm_utils import (
+    ChatGLMForConditionalGeneration,
+    ChatGLMArgs,
+    InvalidScoreLogitsProcessor,
+)
 
 try:
     import wandb
@@ -350,7 +357,27 @@ class ChatGLMTune:
                 )
             )
 
-    def predict(self, to_predict, split_on_space=False):
+    @torch.no_grad()
+    def chat(self, query: str, history: List[Tuple[str, str]] = None, logits_processor=None, **kwargs):
+        if history is None:
+            history = []
+        if not history:
+            prompt = query
+        else:
+            prompt = ""
+            for i, (old_query, response) in enumerate(history):
+                prompt += "[Round {}]\n问：{}\n答：{}\n".format(i, old_query, response)
+            prompt += "[Round {}]\n问：{}\n答：".format(len(history), query)
+        to_predict = [prompt]
+
+        # outputs = outputs.tolist()[0][len(input_ids["input_ids"][0]):]
+        response = self.predict(to_predict, logits_processor=logits_processor, **kwargs)[0]
+        response = response.strip()
+        history = history + [(query, response)]
+        return response, history
+
+    @torch.no_grad()
+    def predict(self, to_predict, split_on_space=False, logits_processor=None, **kwargs):
         """
         Performs predictions on a list of text.
 
@@ -384,6 +411,9 @@ class ChatGLMTune:
         self.model.eval()
 
         all_outputs = []
+        if logits_processor is None:
+            logits_processor = LogitsProcessorList()
+        logits_processor.append(InvalidScoreLogitsProcessor())
         # Batching
         for batch in tqdm(
                 [
@@ -393,20 +423,17 @@ class ChatGLMTune:
                 desc="Generating outputs",
                 disable=self.args.silent,
         ):
-            inputs = self.tokenizer(batch, padding=True, max_length=self.args.max_length, truncation=True,
-                                    return_tensors='pt').to(self.device)
-            with torch.no_grad():
-                outputs = self.model.generate(
-                    input_ids=inputs['input_ids'],
-                    num_beams=self.args.num_beams,
-                    max_length=self.args.max_length,
-                    repetition_penalty=self.args.repetition_penalty,
-                    do_sample=self.args.do_sample,
-                    top_k=self.args.top_k,
-                    top_p=self.args.top_p,
-                    num_return_sequences=self.args.num_return_sequences,
-                    temperature=self.args.temperature,
-                )
+            inputs = self.tokenizer(batch, padding=True, return_tensors='pt').to(self.device)
+            gen_kwargs = {
+                "max_length": self.args.max_length,
+                "num_beams": self.args.num_beams,
+                "do_sample": self.args.do_sample,
+                "top_p": self.args.top_p,
+                "temperature": self.args.temperature,
+                "logits_processor": logits_processor,
+                **kwargs
+            }
+            outputs = self.model.generate(**inputs, **gen_kwargs)
 
             all_outputs.extend(outputs.cpu().numpy())
 

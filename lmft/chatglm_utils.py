@@ -167,17 +167,17 @@ class ChatGLMArgs(ModelArgs):
     model_class: str = "ChatGLMArgs"
     max_seq_length = 384
     max_length = 128
-    do_sample: bool = False
+    do_sample: bool = True
     early_stopping: bool = True
     evaluate_generated_text: bool = False
     length_penalty: float = 2.0
-    num_beams: int = 3
+    num_beams: int = 1
     num_return_sequences: int = 1
     repetition_penalty: float = 1.0
-    temperature: float = 0
+    temperature: float = 0.95
     special_tokens_list: list = field(default_factory=list)
     top_k: float = None
-    top_p: float = None
+    top_p: float = 0.7
     model_name_or_path: Optional[str] = field(default="THUDM/chatglm-6b")
     dataset_name_or_path: Optional[str] = field(default="shibing624/alpaca-zh")
     use_lora: bool = True
