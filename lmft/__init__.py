@@ -4,5 +4,5 @@
 @description: 
 """
 
-from chatglm_model import ChatGLMTune
-from chatglm_utils import ChatGLMForConditionalGeneration, ChatGLMArgs, ChatGLMTrainingArguments, ChatGLMConfig
+from lmft.chatglm_model import ChatGLMTune
+from lmft.chatglm_utils import ChatGLMForConditionalGeneration, ChatGLMArgs, ChatGLMTrainingArguments, ChatGLMConfig
