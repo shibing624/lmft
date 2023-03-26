@@ -146,7 +146,9 @@ class ChatGLMTune:
             self.args.model_name = "ChatGLM_from_scratch"
         else:
             self.args.model_name = model_name
+        self.load_lora()
 
+    def load_lora(self):
         if self.args.use_lora:
             lora_path = os.path.join(self.args.output_dir, self.args.lora_name)
             if lora_path and os.path.exists(lora_path):
@@ -336,6 +338,8 @@ class ChatGLMTune:
                 lora_dropout=self.args.lora_dropout,
             )
             self.model = get_peft_model(self.model, peft_config)
+            if torch.cuda.is_available():
+                torch.set_default_tensor_type(torch.cuda.FloatTensor)
         self._move_model_to_device()
         os.makedirs(output_dir, exist_ok=True)
 
