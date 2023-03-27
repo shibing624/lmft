@@ -244,6 +244,8 @@ class ChatGLMConfig(PretrainedConfig):
             max_sequence_length=2048,
             inner_hidden_size=16384,
             position_encoding_2d=True,
+            quantization_bit=0,
+            quantization_embeddings=False,
             **kwargs
     ):
         self.num_layers = num_layers
@@ -258,6 +260,8 @@ class ChatGLMConfig(PretrainedConfig):
         self.eos_token_id = eos_token_id
         self.pad_token_id = pad_token_id
         self.position_encoding_2d = position_encoding_2d
+        self.quantization_bit=quantization_bit
+        self.quantization_embeddings=quantization_embeddings
         super().__init__(
             pad_token_id=pad_token_id,
             bos_token_id=bos_token_id,
@@ -401,6 +405,13 @@ class RotaryEmbedding(torch.nn.Module):
                 return cos_cached, sin_cached
             self.cos_cached, self.sin_cached = cos_cached, sin_cached
         return self.cos_cached[:seq_len, ...], self.sin_cached[:seq_len, ...]
+
+    def _apply(self, fn):
+        if self.cos_cached is not None:
+            self.cos_cached = fn(self.cos_cached)
+        if self.sin_cached is not None:
+            self.sin_cached = fn(self.sin_cached)
+        return super()._apply(fn)
 
 
 def rotate_half(x):
@@ -1130,7 +1141,7 @@ class ChatGLMModel(ChatGLMPreTrainedModel):
 
 
 class ChatGLMForConditionalGeneration(ChatGLMPreTrainedModel):
-    def __init__(self, config):
+    def __init__(self, config: ChatGLMConfig):
         super().__init__(config)
 
         # self.hidden_size = config.hidden_size
@@ -1149,6 +1160,12 @@ class ChatGLMForConditionalGeneration(ChatGLMPreTrainedModel):
             bias=False,
             dtype=torch.half
         )
+        self.config = config
+
+        self.quantized = False
+
+        if self.config.quantization_bit:
+            self.quantize(self.config.quantization_bit, self.config.quantization_embeddings, use_quantization_cache=True, empty_init=True)
 
     def get_output_embeddings(self):
         return self.lm_head
@@ -1439,7 +1456,50 @@ class ChatGLMForConditionalGeneration(ChatGLMPreTrainedModel):
                 break
             yield input_ids
 
-    def quantize(self, bits: int):
-        from .quantization import quantize
-        self.transformer = quantize(self.transformer, bits)
+    def quantize(self, bits: int, quantize_embeddings=False, use_quantization_cache=False, empty_init=False, **kwargs):
+        if bits == 0:
+            return
+
+        from .quantization import quantize, QuantizedEmbedding, QuantizedLinear, load_cpu_kernel
+
+        if self.quantized:
+            if self.device == torch.device("cpu"):
+                logger.info("Already quantized, reloading cpu kernel.")
+                load_cpu_kernel(**kwargs)
+            else:
+                logger.info("Already quantized.")
+            return self
+
+        self.quantized = True
+
+        self.config.quantization_bit = bits
+        self.config.quantization_embeddings = quantize_embeddings
+
+        self.transformer = quantize(self.transformer, bits, use_quantization_cache=use_quantization_cache, empty_init=empty_init, **kwargs)
+
+        if quantize_embeddings:
+            logger.info("Applying quantization to embeddings")
+            self.transformer.word_embeddings = QuantizedEmbedding(
+                weight_bit_width=bits,
+                weight_tensor=self.transformer.word_embeddings.weight.to(self.device),
+                num_embeddings=self.transformer.word_embeddings.num_embeddings,
+                embedding_dim=self.transformer.word_embeddings.embedding_dim,
+                dtype=torch.half,
+                empty_init=True,
+                device=self.transformer.word_embeddings.weight.device,
+            )
+            self.lm_head =  QuantizedLinear(
+                weight_bit_width=bits,
+                weight_tensor=self.lm_head.weight.to(self.device),
+                bias_tensor=None,
+                in_features=self.lm_head.in_features,
+                out_features=self.lm_head.out_features,
+                bias=False,
+                quantized_weight=self.transformer.word_embeddings.weight,
+                quantized_weight_scale=self.transformer.word_embeddings.weight_scale,
+                dtype=torch.half,
+                empty_init=True,
+                device=self.lm_head.weight.device,
+            )
+
         return self

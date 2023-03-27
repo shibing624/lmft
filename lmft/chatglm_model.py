@@ -199,9 +199,9 @@ class ChatGLMTune:
         else:
             ds = load_dataset(dataset_name_or_path, split="train")
         if self.args.debug:
-            ds = ds.select(range(1000))
+            ds = ds.select(range(2000))
         ds = ds.rename_columns({"output": "target"})
-        ds = ds.filter(lambda x: len(x["target"]) > 2, batched=False)
+        ds = ds.filter(lambda x: len(x["target"]) > 0, batched=False)
 
         def tokenize(example):
             prompt = f"Instruction: {example['instruction']}\n"
@@ -221,7 +221,7 @@ class ChatGLMTune:
         return ds
 
     def data_collator(self, batch):
-        len_ids = [len(feature["input_ids"]) for feature in batch]
+        len_ids = [len(example["input_ids"]) for example in batch]
         longest = max(len_ids)
         input_ids = []
         attention_mask_list = []
@@ -321,8 +321,6 @@ class ChatGLMTune:
             )
             self.model = get_peft_model(self.model, peft_config)
             self.lora_loaded = True
-            if torch.cuda.is_available():
-                torch.set_default_tensor_type(torch.cuda.FloatTensor)
         self._move_model_to_device()
         os.makedirs(output_dir, exist_ok=True)
 
