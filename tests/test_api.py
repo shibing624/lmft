@@ -7,40 +7,16 @@ import sys
 import pytest
 
 sys.path.append('..')
-
-
-
-def test_error_key():
-    with pytest.raises(ValueError, match="openai api key is invalid, please check it."):
-        ChatGPTBot(openai_api_key='aaa')
+from lmft import ChatGLMTune
 
 
 def test_get_default_key():
-    a = '英汉互译: data science'
-    m = ChatGPTBot()
-    r = m.reply(a)
-    print(r)
-    assert len(r) > 0 and '数据科学' in r
+    m = ChatGLMTune('chatglm', "THUDM/chatglm-6b", args={'use_lora': False})
+    response, history = m.chat("你好", history=[])
+    print(response)
+    response, history = m.chat("晚上睡不着应该怎么办", history=history)
+    print(response)
+    assert len(response) > 0
 
 
-def test_get_image_from_text():
-    a = '画个猫'
-    m = ChatGPTBot()
-    r = m.reply(a)
-    print(r)
-    assert len(r) > 0
-
-
-def test_get_image_from_image():
-    a = '画2个猫再一起玩球'
-    context = {'session_id': 'UserName2', 'type': 'IMAGE_CREATE'}
-    m = ChatGPTBot()
-    r = m.reply(a, context)
-    print(r)
-    assert len(r) > 0 and 'http' in r
-
-
-test_error_key()
 test_get_default_key()
-test_get_image_from_text()
-test_get_image_from_image()
