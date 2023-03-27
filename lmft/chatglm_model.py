@@ -199,7 +199,7 @@ class ChatGLMTune:
         else:
             ds = load_dataset(dataset_name_or_path, split="train")
         if self.args.debug:
-            ds = ds.select(range(2000))
+            ds = ds.select(range(20))
         ds = ds.rename_columns({"output": "target"})
         ds = ds.filter(lambda x: len(x["target"]) > 0, batched=False)
 
@@ -230,10 +230,11 @@ class ChatGLMTune:
         for ids_l, feature in sorted(zip(len_ids, batch), key=lambda x: -x[0]):
             ids = feature["input_ids"]
             seq_len = ids.index(self.tokenizer.bos_token_id)
+            label_pad_token_id = -100
             labels = (
-                    [-100] * (seq_len - 1)
+                    [label_pad_token_id] * (seq_len - 1)
                     + ids[(seq_len - 1):]
-                    + [-100] * (longest - ids_l)
+                    + [label_pad_token_id] * (longest - ids_l)
             )
             ids = ids + [self.tokenizer.pad_token_id] * (longest - ids_l)
             _ids = torch.LongTensor(ids)
@@ -329,20 +330,24 @@ class ChatGLMTune:
         logger.debug(f"dataset: {train_dataset} first row: {next(iter(train_dataset))}")
 
         # start train
-        training_args = TrainingArguments(self.args.output_dir)
-        training_args.output_dir = self.args.output_dir
-        training_args.num_train_epochs = self.args.num_train_epochs
-        training_args.max_steps = self.args.max_steps
-        training_args.per_device_train_batch_size = self.args.per_device_train_batch_size
-        training_args.gradient_accumulation_steps = self.args.gradient_accumulation_steps
-        training_args.save_steps = self.args.save_steps
-        training_args.save_total_limit = self.args.save_total_limit
-        training_args.learning_rate = self.args.learning_rate
-        training_args.fp16 = self.args.fp16
-        training_args.remove_unused_columns = self.args.remove_unused_columns
-        training_args.logging_steps = self.args.logging_steps
-        training_args.overwrite_output_dir = self.args.overwrite_output_dir
-        training_args.do_train = True
+        training_args = TrainingArguments(
+            output_dir=self.args.output_dir,
+            auto_find_batch_size=True,
+            learning_rate=self.args.learning_rate,
+            num_train_epochs=self.args.num_train_epochs,
+            logging_dir=f"{self.args.output_dir}/logs",
+            logging_steps=self.args.logging_steps,
+            max_steps=self.args.max_steps,
+            per_device_train_batch_size=self.args.per_device_train_batch_size,
+            per_device_eval_batch_size=self.args.per_device_train_batch_size,
+            gradient_accumulation_steps=self.args.gradient_accumulation_steps,
+            save_steps=self.args.save_steps,
+            save_total_limit=self.args.save_total_limit,
+            fp16=self.args.fp16,
+            remove_unused_columns=self.args.remove_unused_columns,
+            overwrite_output_dir=self.args.overwrite_output_dir,
+            do_train=True,
+        )
         logger.debug(f"training_args: {training_args}")
         trainer = FinetuneTrainer(
             model=self.model,
@@ -378,8 +383,6 @@ class ChatGLMTune:
                 self.model.load_state_dict(torch.load(lora_path), strict=False)
                 logger.info(f"Loaded lora model from {lora_path}")
                 self.lora_loaded = True
-                if torch.cuda.is_available():
-                    torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
     @torch.no_grad()
     def chat(self, query: str, history: List[Tuple[str, str]] = None, logits_processor=None, **kwargs):
@@ -420,10 +423,12 @@ class ChatGLMTune:
             preds: A python list of the generated sequences.
         """  # noqa: ignore flake8"
 
-        self._move_model_to_device()
-        self.model.eval()
         if not self.lora_loaded:
             self.load_lora()
+        self._move_model_to_device()
+        if torch.cuda.is_available() and self.args.fp16:
+            self.model = self.model.half().cuda()
+        self.model.eval()
 
         all_outputs = []
         if logits_processor is None:
