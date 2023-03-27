@@ -124,7 +124,7 @@ class ChatGLMTune:
         self.results = {}
         config_class, model_class, tokenizer_class = MODEL_CLASSES[model_type]
         if model_name is None:
-            model_name = "THUDM/chatglm-6b-int4-qe"
+            model_name = "THUDM/chatglm-6b"
         if torch.cuda.is_available():
             self.model = model_class.from_pretrained(model_name,
                                                      trust_remote_code=True).half().cuda()
