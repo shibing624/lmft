@@ -25,14 +25,16 @@ Language Model Fine-Tuning, for ChatGLM, BELLE, LLaMA fine-tuning.
 
 
 # Feature
-### ChatGPT-6B fine-tuning
-- [Word2Vec](lmft/word2vec.py)：通过腾讯AI Lab开源的大规模高质量中文[词向量数据（800万中文词轻量版）](https://pan.baidu.com/s/1La4U4XNFe8s5BJqxPQpeiQ) (文件名：light_Tencent_AILab_ChineseEmbedding.bin 密码: tawe）实现词向量检索，本项目实现了句子（词向量求平均）的word2vec向量表示
-- [SBERT(Sentence-BERT)](lmft/sentencebert_model.py)：权衡性能和效率的句向量表示模型，训练时通过有监督训练上层分类函数，文本匹配预测时直接句子向量做余弦，本项目基于PyTorch复现了Sentence-BERT模型的训练和预测
-- [CoSENT(Cosine Sentence)](lmft/cosent_model.py)：CoSENT模型提出了一种排序的损失函数，使训练过程更贴近预测，模型收敛速度和效果比Sentence-BERT更好，本项目基于PyTorch实现了CoSENT模型的训练和预测
+### ChatGLM
+* [THUDM/chatglm-6b](https://huggingface.co/THUDM/chatglm-6b) 模型的Finetune训练
+[THUDM/ChatGLM-6B](https://github.com/THUDM/ChatGLM-6B)放出的默认模型，模型以 FP16 精度加载，模型运行需要 13GB 显存，训练需要 29GB 显存。
+* [THUDM/chatglm-6b-int4-qe](https://huggingface.co/THUDM/chatglm-6b-int4-qe) 模型的Finetune训练
+[THUDM/ChatGLM-6B](https://github.com/THUDM/ChatGLM-6B)放出的int4并对Embedding量化后的模型，模型运行需要 4.3GB 显存，训练需要 8GB 以上显存。
+
 
 # Evaluation
 
-### 文本生成
+### 对话生成
 
 # Demo
 
@@ -62,49 +64,55 @@ pip install --no-deps .
 
 # Usage
 
-## 文本生成
+## 训练ChatGLM-6B模型
 
-example: [examples/computing_embeddings_demo.py](examples/computing_embeddings_demo.py)
+example: [examples/train_chatglm_demo.py](examples/train_chatglm_demo.py)
 
 ```python
 import sys
 
 sys.path.append('..')
-from lmft import ChatGpt
+from lmft import ChatGLMTune
 
 
-def compute_emb(model):
-    # Embed a list of sentences
-    sentences = [
-        '卡',
-        '银行卡',
-        'The quick brown fox jumps over the lazy dog.'
-    ]
-    sentence_embeddings = model.encode(sentences)
-    print(type(sentence_embeddings), sentence_embeddings.shape)
-
-    # The result is a list of sentence embeddings as numpy arrays
-    for sentence, embedding in zip(sentences, sentence_embeddings):
-        print("Sentence:", sentence)
-        print("Embedding shape:", embedding.shape)
-        print("Embedding head:", embedding[:10])
-        print()
+def finetune_demo():
+    m = ChatGLMTune('chatglm', "THUDM/chatglm-6b", args={'use_lora': True})
+    m.train_model(train_data='shibing624/alpaca-zh')
+    r = m.predict(['你是谁', '三原色是啥'])
+    print(r)
+    response, history = m.chat("你好", history=[])
+    print(response)
+    response, history = m.chat("晚上睡不着应该怎么办", history=history)
+    print(response)
 
 
-if __name__ == "__main__":
-    t2v_model = ChatGpt("shibing624/lmft-base-chinese")
-    compute_emb(t2v_model)
+def origin_chat_demo():
+    m = ChatGLMTune('chatglm', "THUDM/chatglm-6b", args={'use_lora': False})
+    response, history = m.chat("你好", history=[])
+    print(response)
+    response, history = m.chat("晚上睡不着应该怎么办", history=history)
+    print(response)
+
+
+if __name__ == '__main__':
+    origin_chat_demo()
+    finetune_demo()
 ```
 
 output:
 ```
-<class 'numpy.ndarray'> (7, 768)
-Sentence: 卡
-Embedding shape: (768,)
+问:hi
+答:hi 
 
-Sentence: 银行卡
-Embedding shape: (768,)
- ... 
+[Round 1]
+问:晚上睡不着应该怎么办
+答: 想要在晚上入睡,但并不容易,可以参考下述技巧:
+1. 睡前放松:尝试进行一些放松的活动,如冥想、深呼吸或瑜伽,帮助放松身心,减轻压力和焦虑。
+2. 创造一个舒适的睡眠环境:保持房间安静、黑暗和凉爽,使用舒适的床垫和枕头,确保床铺干净整洁。
+3. 规律的睡眠时间表:保持规律的睡眠时间表,尽可能在同一时间上床,并创造一个固定的起床时间。
+4. 避免刺激性食物和饮料:避免在睡前饮用含咖啡因的饮料,如咖啡、茶和可乐,以及吃辛辣、油腻或难以消化的食物。
+5. 避免过度使用电子设备:避免在睡前使用电子设备,如手机、电视和电脑。这些设备会发出蓝光,干扰睡眠。
+如果尝试了这些技巧仍然无法入睡,建议咨询医生或睡眠专家,获取更专业的建议和帮助。
 ```
 
 

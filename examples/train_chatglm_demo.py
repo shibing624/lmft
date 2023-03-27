@@ -6,7 +6,7 @@
 import sys
 
 sys.path.append('..')
-from lmft.chatglm_model import ChatGLMTune
+from lmft import ChatGLMTune
 
 
 def finetune_demo():
