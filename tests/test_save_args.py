@@ -5,7 +5,9 @@
 """
 import sys
 import pytest
+import shutil
 import os
+from loguru import logger
 
 sys.path.append('..')
 from lmft.chatglm_utils import ChatGLMArgs
@@ -15,9 +17,18 @@ def test_save_args():
     args = ChatGLMArgs()
     os.makedirs('outputs/', exist_ok=True)
     print('old', args)
-    args.save('outputs/')
+    logger.info(args)
+    args.adafactor_clip_threshold = 2.0
+    print('new', args)
+    try:
+        args.save('outputs/')
+    except Exception as e:
+        print(e)
     args.load('outputs/')
     print('new', args)
+    logger.info(args)
+    assert args.adafactor_clip_threshold == 2.0
+    shutil.rmtree('outputs/')
 
 
 test_save_args()

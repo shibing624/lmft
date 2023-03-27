@@ -485,6 +485,7 @@ class ChatGLMTune:
             save_tunable_parameters(
                 self.model, os.path.join(self.args.output_dir, self.args.lora_name)
             )
+            self.save_model_args(output_dir)
 
         if results:
             output_eval_file = os.path.join(output_dir, "eval_results.txt")

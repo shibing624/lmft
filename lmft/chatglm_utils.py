@@ -143,17 +143,17 @@ class ModelArgs:
 
     def save(self, output_dir):
         os.makedirs(output_dir, exist_ok=True)
-        with open(os.path.join(output_dir, "model_args.json"), "w") as f:
+        with open(os.path.join(output_dir, "model_args.json"), "w", encoding='utf-8') as f:
             args_dict = self.get_args_for_saving()
             if args_dict["tokenizer_type"] is not None and not isinstance(args_dict["tokenizer_type"], str):
                 args_dict["tokenizer_type"] = type(args_dict["tokenizer_type"]).__name__
-            json.dump(args_dict, f)
+            f.write(json.dumps(args_dict, default=str))
 
     def load(self, input_dir):
         if input_dir:
             model_args_file = os.path.join(input_dir, "model_args.json")
             if os.path.isfile(model_args_file):
-                with open(model_args_file, "r") as f:
+                with open(model_args_file, "r", encoding='utf-8') as f:
                     model_args = json.load(f)
 
                 self.update_from_dict(model_args)
