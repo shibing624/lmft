@@ -29,5 +29,5 @@ def origin_chat_demo():
 
 
 if __name__ == '__main__':
-    # origin_chat_demo()
+    origin_chat_demo()
     finetune_demo()
