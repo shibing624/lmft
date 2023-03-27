@@ -26,9 +26,11 @@ Language Model Fine-Tuning, for ChatGLM, BELLE, LLaMA fine-tuning.
 
 # Feature
 ### ChatGLM
-* [THUDM/chatglm-6b](https://huggingface.co/THUDM/chatglm-6b) 模型的Finetune训练
+#### [THUDM/chatglm-6b](https://huggingface.co/THUDM/chatglm-6b) 模型的Finetune训练
+
 [THUDM/ChatGLM-6B](https://github.com/THUDM/ChatGLM-6B)放出的默认模型，模型以 FP16 精度加载，模型运行需要 13GB 显存，训练需要 29GB 显存。
-* [THUDM/chatglm-6b-int4-qe](https://huggingface.co/THUDM/chatglm-6b-int4-qe) 模型的Finetune训练
+#### [THUDM/chatglm-6b-int4-qe](https://huggingface.co/THUDM/chatglm-6b-int4-qe) 模型的Finetune训练
+
 [THUDM/ChatGLM-6B](https://github.com/THUDM/ChatGLM-6B)放出的int4并对Embedding量化后的模型，模型运行需要 4.3GB 显存，训练需要 8GB 以上显存。
 
 
