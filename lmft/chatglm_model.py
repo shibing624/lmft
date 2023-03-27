@@ -481,17 +481,16 @@ class ChatGLMTune:
                 torch.save(
                     scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt")
                 )
-            self.save_model_args(output_dir)
+            # save model
+            save_tunable_parameters(
+                self.model, os.path.join(self.args.output_dir, self.args.lora_name)
+            )
 
         if results:
             output_eval_file = os.path.join(output_dir, "eval_results.txt")
             with open(output_eval_file, "w") as writer:
                 for key in sorted(results.keys()):
                     writer.write("{} = {}\n".format(key, str(results[key])))
-        # save model
-        save_tunable_parameters(
-            self.model, os.path.join(self.args.output_dir, self.args.lora_name)
-        )
 
     def save_model_args(self, output_dir):
         os.makedirs(output_dir, exist_ok=True)
