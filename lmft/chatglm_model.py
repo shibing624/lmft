@@ -146,25 +146,7 @@ class ChatGLMTune:
             self.args.model_name = "ChatGLM_from_scratch"
         else:
             self.args.model_name = model_name
-        self.load_lora()
-
-    def load_lora(self):
-        if self.args.use_lora:
-            lora_path = os.path.join(self.args.output_dir, self.args.lora_name)
-            if lora_path and os.path.exists(lora_path):
-                # infer with trained lora model
-                peft_config = LoraConfig(
-                    task_type=TaskType.CAUSAL_LM,
-                    inference_mode=True,
-                    r=self.args.lora_rank,
-                    lora_alpha=self.args.lora_alpha,
-                    lora_dropout=self.args.lora_dropout,
-                )
-                self.model = get_peft_model(self.model, peft_config)
-                self.model.load_state_dict(torch.load(lora_path), strict=False)
-                logger.info(f"Loaded lora model from {lora_path}")
-                if torch.cuda.is_available():
-                    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+        self.lora_loaded = False
 
     @staticmethod
     def get_masks_and_position_ids(seq_len, context_length, device, gmask=False, position_encoding_2d=True):
@@ -338,6 +320,7 @@ class ChatGLMTune:
                 lora_dropout=self.args.lora_dropout,
             )
             self.model = get_peft_model(self.model, peft_config)
+            self.lora_loaded = True
             if torch.cuda.is_available():
                 torch.set_default_tensor_type(torch.cuda.FloatTensor)
         self._move_model_to_device()
@@ -381,6 +364,25 @@ class ChatGLMTune:
                 )
             )
 
+    def load_lora(self):
+        if self.args.use_lora:
+            lora_path = os.path.join(self.args.output_dir, self.args.lora_name)
+            if lora_path and os.path.exists(lora_path):
+                # infer with trained lora model
+                peft_config = LoraConfig(
+                    task_type=TaskType.CAUSAL_LM,
+                    inference_mode=True,
+                    r=self.args.lora_rank,
+                    lora_alpha=self.args.lora_alpha,
+                    lora_dropout=self.args.lora_dropout,
+                )
+                self.model = get_peft_model(self.model, peft_config)
+                self.model.load_state_dict(torch.load(lora_path), strict=False)
+                logger.info(f"Loaded lora model from {lora_path}")
+                self.lora_loaded = True
+                if torch.cuda.is_available():
+                    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+
     @torch.no_grad()
     def chat(self, query: str, history: List[Tuple[str, str]] = None, logits_processor=None, **kwargs):
         """
@@ -422,6 +424,8 @@ class ChatGLMTune:
 
         self._move_model_to_device()
         self.model.eval()
+        if not self.lora_loaded:
+            self.load_lora()
 
         all_outputs = []
         if logits_processor is None:
