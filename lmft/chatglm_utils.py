@@ -88,7 +88,7 @@ class ModelArgs:
     logging_steps: int = 50
     manual_seed: int = None
     max_grad_norm: float = 1.0
-    max_seq_length: int = 384
+    max_seq_length: int = 512
     model_name: str = None
     model_type: str = None
     multiprocessing_chunksize: int = -1
@@ -167,7 +167,7 @@ class ChatGLMArgs(ModelArgs):
 
     model_class: str = "ChatGLMArgs"
     debug: bool = false
-    max_length = 256
+    max_length = 384
     do_sample: bool = True
     early_stopping: bool = True
     evaluate_generated_text: bool = False
