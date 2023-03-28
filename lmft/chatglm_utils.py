@@ -201,19 +201,26 @@ class ChatGLMArgs(ModelArgs):
     logging_steps = 50
 
 
+def preprocess_data(data):
+    instruction, input_text, target_text, tokenizer, args = data
+
+    prompt = f"问：{instruction}\n"
+    if input_text:
+        prompt += f"{input_text}\n"
+    prompt += "答："
+
+    prompt_ids = tokenizer.encode(prompt, max_length=args.max_seq_length, truncation=True)
+    target_ids = tokenizer.encode(target_text, max_length=args.max_length, truncation=True,
+                                  add_special_tokens=False)
+    input_ids = prompt_ids + target_ids
+    input_ids = input_ids[:(args.max_seq_length + args.max_length)] + [tokenizer.eos_token_id]
+
+    return input_ids
+
+
 def preprocess_batch_for_hf_dataset(dataset, tokenizer, args):
-    return tokenizer.prepare_seq2seq_batch(
-        src_texts=[
-            f"问：{instruction}\n" + f"{input_text}\n" + "答：" if input_text else f"问：{instruction}\n" + "答："
-            for instruction, input_text in zip(dataset["instruction"], dataset["input"])
-        ],
-        tgt_texts=dataset["output"],
-        max_length=args.max_seq_length,
-        max_target_length=args.max_length,
-        padding="max_length",
-        return_tensors="np",
-        truncation=True,
-    )
+    data = (dataset["instruction"], dataset["input"], dataset["output"], tokenizer, args)
+    return preprocess_data(data)
 
 
 def load_hf_dataset(data, tokenizer, args):
@@ -229,7 +236,7 @@ def load_hf_dataset(data, tokenizer, args):
 
     dataset = dataset.map(
         lambda x: preprocess_batch_for_hf_dataset(x, tokenizer=tokenizer, args=args),
-        batched=True,
+        batched=False,
     )
 
     dataset.set_format(type="np", columns=["input_ids"])
@@ -239,42 +246,6 @@ def load_hf_dataset(data, tokenizer, args):
         return dataset["train"]
     else:
         return dataset
-
-
-def preprocess_data(data):
-    instruction, input_text, target_text, tokenizer, args = data
-
-    prompt = f"问：{instruction}\n"
-    if input_text:
-        prompt += f"{input_text}\n"
-    prompt += "答："
-
-    src = tokenizer(
-        [prompt],
-        padding="max_length",
-        return_tensors='np',
-        max_length=args.max_seq_length,
-        truncation=True,
-        return_attention_mask=False,
-        return_token_type_ids=False,
-    )
-    prompt_ids = src["input_ids"][0]
-    with tokenizer.as_target_tokenizer():
-        tgt = tokenizer(
-            [target_text],
-            padding="max_length",
-            return_tensors='np',
-            max_length=args.max_length,
-            truncation=True,
-            return_attention_mask=False,
-            return_token_type_ids=False,
-            add_special_tokens=False,
-        )
-    target_ids = tgt["input_ids"][0]
-    input_ids = prompt_ids + target_ids
-    input_ids = input_ids[:(args.max_seq_length + args.max_length)] + [tokenizer.eos_token_id]
-
-    return input_ids
 
 
 class ChatGLMDataset(Dataset):

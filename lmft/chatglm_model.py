@@ -186,7 +186,7 @@ class ChatGLMTune:
         position_ids_list = []
         labels_list = []
         for ids_l, feature in sorted(zip(len_ids, batch), key=lambda x: -x[0]):
-            ids = feature.tolist()
+            ids = list(feature)
             seq_len = ids.index(self.tokenizer.bos_token_id)
             label_pad_token_id = -100
             labels = (

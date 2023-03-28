@@ -44,7 +44,7 @@ def finetune_demo():
         logger.info('Loading data...')
         model_args = {
             'use_lora': True,
-            "reprocess_input_data": False,
+            "reprocess_input_data": True,
             "overwrite_output_dir": True,
             "max_seq_length": args.max_seq_length,
             "max_length": args.max_length,
