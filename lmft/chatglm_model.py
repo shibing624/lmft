@@ -22,6 +22,8 @@ from .chatglm_utils import (
     ChatGLMForConditionalGeneration,
     ChatGLMArgs,
     InvalidScoreLogitsProcessor,
+    load_hf_dataset,
+    ChatGLMDataset
 )
 
 try:
@@ -125,8 +127,7 @@ class ChatGLMTune:
         if model_name is None:
             model_name = "THUDM/chatglm-6b"
         if use_cuda and torch.cuda.is_available():
-            self.model = model_class.from_pretrained(model_name,
-                                                     trust_remote_code=True).half().cuda()
+            self.model = model_class.from_pretrained(model_name, trust_remote_code=True).half().cuda()
         else:
             self.model = model_class.from_pretrained(model_name, trust_remote_code=True).float()
 
@@ -178,47 +179,47 @@ class ChatGLMTune:
                 position_ids[context_length - 1:] = mask_position
         return attention_mask, position_ids
 
-    def build_dataset(self, dataset_name_or_path="shibing624/alpaca-zh", max_seq_length=512):
-        """
-        Build dataset for training. This builds the dataset from `load_dataset`, one should
-        customize this function to train the model on its own dataset.
-
-        Args:
-            dataset_name_or_path (`str`):
-                The name of the dataset to be loaded.
-
-        Returns:
-            dataloader (`torch.utils.data.DataLoader`):
-                The dataloader for the dataset.
-        """
-        # load datasets
-        if os.path.exists(dataset_name_or_path):
-            ds = load_dataset("json", data_files=dataset_name_or_path)
-            ds = ds['train']
-        else:
-            ds = load_dataset(dataset_name_or_path, split="train")
-        if self.args.debug:
-            ds = ds.select(range(20))
-        ds = ds.rename_columns({"output": "target"})
-        ds = ds.filter(lambda x: len(x["target"]) > 0, batched=False)
-
-        def tokenize(example):
-            prompt = f"问：{example['instruction']}\n"
-            if example.get("input", ""):
-                prompt += f"{example['input']}\n"
-            prompt += "答："
-            example['prompt'] = prompt
-
-            prompt_ids = self.tokenizer.encode(prompt, max_length=max_seq_length, truncation=True)
-            target_ids = self.tokenizer.encode(example["target"], max_length=max_seq_length, truncation=True,
-                                               add_special_tokens=False)
-            input_ids = prompt_ids + target_ids
-            example["input_ids"] = input_ids[:max_seq_length] + [self.tokenizer.eos_token_id]
-            example["seq_len"] = len(prompt_ids)
-            return example
-
-        ds = ds.map(tokenize, batched=False)
-        return ds
+    # def build_dataset(self, dataset_name_or_path="shibing624/alpaca-zh", max_seq_length=512):
+    #     """
+    #     Build dataset for training. This builds the dataset from `load_dataset`, one should
+    #     customize this function to train the model on its own dataset.
+    #
+    #     Args:
+    #         dataset_name_or_path (`str`):
+    #             The name of the dataset to be loaded.
+    #
+    #     Returns:
+    #         dataloader (`torch.utils.data.DataLoader`):
+    #             The dataloader for the dataset.
+    #     """
+    #     # load datasets
+    #     if os.path.exists(dataset_name_or_path):
+    #         ds = load_dataset("json", data_files=dataset_name_or_path)
+    #         ds = ds['train']
+    #     else:
+    #         ds = load_dataset(dataset_name_or_path, split="train")
+    #     if self.args.debug:
+    #         ds = ds.select(range(20))
+    #     ds = ds.rename_columns({"output": "target"})
+    #     ds = ds.filter(lambda x: len(x["target"]) > 0, batched=False)
+    #
+    #     def tokenize(example):
+    #         prompt = f"问：{example['instruction']}\n"
+    #         if example.get("input", ""):
+    #             prompt += f"{example['input']}\n"
+    #         prompt += "答："
+    #         example['prompt'] = prompt
+    #
+    #         prompt_ids = self.tokenizer.encode(prompt, max_length=max_seq_length, truncation=True)
+    #         target_ids = self.tokenizer.encode(example["target"], max_length=max_seq_length, truncation=True,
+    #                                            add_special_tokens=False)
+    #         input_ids = prompt_ids + target_ids
+    #         example["input_ids"] = input_ids[:max_seq_length] + [self.tokenizer.eos_token_id]
+    #         example["seq_len"] = len(prompt_ids)
+    #         return example
+    #
+    #     ds = ds.map(tokenize, batched=False)
+    #     return ds
 
     def data_collator(self, batch):
         len_ids = [len(example["input_ids"]) for example in batch]
@@ -323,10 +324,9 @@ class ChatGLMTune:
             self.model = get_peft_model(self.model, peft_config)
             self.lora_loaded = True
         self._move_model_to_device()
-        os.makedirs(output_dir, exist_ok=True)
-
         # load dataset
-        train_dataset = self.build_dataset(train_data, max_seq_length=self.args.max_seq_length)
+        train_dataset = self.load_and_cache_examples(train_data, verbose=verbose)
+        os.makedirs(output_dir, exist_ok=True)
         logger.debug(f"dataset: {train_dataset} first row: {next(iter(train_dataset))}")
 
         # start train
@@ -347,6 +347,7 @@ class ChatGLMTune:
             remove_unused_columns=self.args.remove_unused_columns,
             overwrite_output_dir=self.args.overwrite_output_dir,
             do_train=True,
+            no_cuda=True if self.device == "cpu" else False,
         )
         logger.debug(f"training_args: {training_args}")
         trainer = FinetuneTrainer(
@@ -356,7 +357,7 @@ class ChatGLMTune:
             tokenizer=self.tokenizer,
             data_collator=self.data_collator,
         )
-        trainer.train()
+        (global_step, training_loss, metrics) = trainer.train()
 
         self.save_model(model=self.model)
 
@@ -366,6 +367,7 @@ class ChatGLMTune:
                     self.args.model_name, output_dir
                 )
             )
+        return global_step, training_loss
 
     def load_lora(self):
         if self.args.use_lora:
@@ -461,6 +463,40 @@ class ChatGLMTune:
 
     def _move_model_to_device(self):
         self.model.to(self.device)
+
+    def load_and_cache_examples(
+            self, data, evaluate=False, no_cache=False, verbose=True, silent=False
+    ):
+        """
+        Creates a ChatGLMDataset from data.
+
+        Utility function for train() and eval() methods. Not intended to be used directly.
+        """
+
+        tokenizer = self.tokenizer
+        args = self.args
+
+        if not no_cache:
+            no_cache = args.no_cache
+
+        if not no_cache:
+            os.makedirs(self.args.cache_dir, exist_ok=True)
+
+        mode = "dev" if evaluate else "train"
+
+        if self.args.use_hf_datasets:
+            dataset = load_hf_dataset(data, tokenizer, self.args)
+            return dataset
+        elif args.dataset_class:
+            CustomDataset = args.dataset_class
+            return CustomDataset(tokenizer, args, data, mode)
+        else:
+            return ChatGLMDataset(
+                tokenizer,
+                self.args,
+                data,
+                mode,
+            )
 
     def save_model(
             self, output_dir=None, optimizer=None, scheduler=None, model=None, results=None

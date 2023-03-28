@@ -9,10 +9,11 @@ import json
 import math
 import os
 import warnings
+from multiprocessing import Pool
+from tqdm.auto import tqdm
 from dataclasses import asdict, dataclass, field
 from typing import Optional, Tuple, Union, List, Callable
-from sympy import false
-
+import pickle
 import torch
 import torch.nn.functional as F
 import torch.utils.checkpoint
@@ -20,6 +21,9 @@ from loguru import logger
 from torch import nn
 from torch.nn import CrossEntropyLoss, LayerNorm
 from torch.nn.utils import skip_init
+from torch.utils.data import Dataset
+from datasets import Dataset as HFDataset
+from datasets import load_dataset
 from transformers.configuration_utils import PretrainedConfig
 from transformers.generation.logits_process import LogitsProcessor
 from transformers.generation.utils import LogitsProcessorList, StoppingCriteriaList, GenerationConfig
@@ -95,7 +99,7 @@ class ModelArgs:
     n_gpu: int = 1
     no_cache: bool = False
     no_save: bool = False
-    not_saved_args: list = field(default_factory=list)
+    not_saved_args: list = field(default_factory=['dataset_class'])
     num_train_epochs: int = 1
     optimizer: str = "AdamW"
     output_dir: str = "outputs/"
@@ -104,7 +108,7 @@ class ModelArgs:
     polynomial_decay_schedule_power: float = 1.0
     process_count: int = 1
     quantized_model: bool = False
-    reprocess_input_data: bool = True
+    reprocess_input_data: bool = False
     save_best_model: bool = True
     save_eval_checkpoints: bool = True
     save_model_every_epoch: bool = False
@@ -147,7 +151,7 @@ class ModelArgs:
             args_dict = self.get_args_for_saving()
             if args_dict["tokenizer_type"] is not None and not isinstance(args_dict["tokenizer_type"], str):
                 args_dict["tokenizer_type"] = type(args_dict["tokenizer_type"]).__name__
-            f.write(json.dumps(args_dict, default=str))
+            json.dump(args_dict, f)
 
     def load(self, input_dir):
         if input_dir:
@@ -166,7 +170,8 @@ class ChatGLMArgs(ModelArgs):
     """
 
     model_class: str = "ChatGLMArgs"
-    debug: bool = false
+    dataset_class: Dataset = None
+    debug: bool = False
     max_length = 384
     do_sample: bool = True
     early_stopping: bool = True
@@ -193,6 +198,139 @@ class ChatGLMArgs(ModelArgs):
     save_total_limit = 2
     remove_unused_columns = False
     logging_steps = 50
+
+
+def preprocess_batch_for_hf_dataset(dataset, tokenizer, args):
+    return tokenizer.prepare_seq2seq_batch(
+        src_texts=[
+            prefix + input_text
+            for prefix, input_text in zip(dataset["prefix"], dataset["input_text"])
+        ],
+        tgt_texts=dataset["target_text"],
+        max_length=args.max_seq_length,
+        max_target_length=args.max_length,
+        padding="max_length",
+        return_tensors="np",
+        truncation=True,
+    )
+
+
+def load_hf_dataset(data, tokenizer, args):
+    if isinstance(data, str):
+        dataset = load_dataset(
+            data,
+            download_mode="force_redownload"
+            if args.reprocess_input_data
+            else "reuse_dataset_if_exists",
+        )
+    else:
+        dataset = HFDataset.from_pandas(data)
+
+    dataset = dataset.map(
+        lambda x: preprocess_batch_for_hf_dataset(x, tokenizer=tokenizer, args=args),
+        batched=True,
+    )
+
+    dataset.set_format(type="np", columns=["input_ids"])
+
+    if isinstance(data, str):
+        # This is not necessarily a train dataset. The datasets library insists on calling it train.
+        return dataset["train"]
+    else:
+        return dataset
+
+
+def preprocess_data(data):
+    prefix, input_text, target_text, tokenizer, args = data
+
+    prompt = f"问：{prefix}\n"
+    if input_text:
+        prompt += f"{input_text}\n"
+    prompt += "答："
+
+    src = tokenizer(
+        [prompt],
+        padding="max_length",
+        return_tensors='np',
+        max_length=args.max_seq_length,
+        truncation=True,
+        return_attention_mask=False,
+        return_token_type_ids=False,
+    )
+    prompt_ids = src["input_ids"][0]
+    with tokenizer.as_target_tokenizer():
+        tgt = tokenizer(
+            [target_text],
+            padding="max_length",
+            return_tensors='np',
+            max_length=args.max_seq_length,
+            truncation=True,
+            return_attention_mask=False,
+            return_token_type_ids=False,
+            add_special_tokens=False,
+        )
+    target_ids = tgt["input_ids"][0]
+    input_ids = prompt_ids + target_ids
+    input_ids = input_ids[:args.max_seq_length] + [tokenizer.eos_token_id]
+
+    return input_ids
+
+
+class ChatGLMDataset(Dataset):
+    def __init__(self, tokenizer, args, data, mode):
+        cached_features_file = os.path.join(
+            args.cache_dir,
+            args.model_name.replace("/", "_")
+            + "_cached_"
+            + str(args.max_seq_length)
+            + str(len(data)),
+        )
+
+        if os.path.exists(cached_features_file) and (
+                (not args.reprocess_input_data and not args.no_cache)
+                or (mode == "dev" and args.use_cached_eval_features and not args.no_cache)
+        ):
+            logger.info(" Loading features from cached file %s" % cached_features_file)
+            with open(cached_features_file, "rb") as handle:
+                self.examples = pickle.load(handle)
+        else:
+            logger.info(" Creating features from dataset file at %s" % args.cache_dir)
+
+            data = [
+                (prefix, input_text, target_text, tokenizer, args)
+                for prefix, input_text, target_text in zip(
+                    data["prefix"], data["input_text"], data["target_text"]
+                )
+            ]
+
+            if (mode == "train" and args.use_multiprocessing) or (
+                    mode == "dev" and args.use_multiprocessing_for_evaluation
+            ):
+                if args.multiprocessing_chunksize == -1:
+                    chunksize = max(len(data) // (args.process_count * 2), 500)
+                else:
+                    chunksize = args.multiprocessing_chunksize
+
+                with Pool(args.process_count) as p:
+                    self.examples = list(
+                        tqdm(
+                            p.imap(preprocess_data, data, chunksize=chunksize),
+                            total=len(data),
+                            disable=args.silent,
+                        )
+                    )
+            else:
+                self.examples = [preprocess_data(d) for d in tqdm(data, disable=args.silent)]
+            if not args.no_cache:
+                logger.info(" Saving features into cached file %s" % cached_features_file)
+                with open(cached_features_file, "wb") as handle:
+                    pickle.dump(self.examples, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def __len__(self):
+        return len(self.examples)
+
+    def __getitem__(self, index):
+        return self.examples[index]
 
 
 class ChatGLMConfig(PretrainedConfig):
@@ -260,8 +398,8 @@ class ChatGLMConfig(PretrainedConfig):
         self.eos_token_id = eos_token_id
         self.pad_token_id = pad_token_id
         self.position_encoding_2d = position_encoding_2d
-        self.quantization_bit=quantization_bit
-        self.quantization_embeddings=quantization_embeddings
+        self.quantization_bit = quantization_bit
+        self.quantization_embeddings = quantization_embeddings
         super().__init__(
             pad_token_id=pad_token_id,
             bos_token_id=bos_token_id,
@@ -1165,7 +1303,8 @@ class ChatGLMForConditionalGeneration(ChatGLMPreTrainedModel):
         self.quantized = False
 
         if self.config.quantization_bit:
-            self.quantize(self.config.quantization_bit, self.config.quantization_embeddings, use_quantization_cache=True, empty_init=True)
+            self.quantize(self.config.quantization_bit, self.config.quantization_embeddings,
+                          use_quantization_cache=True, empty_init=True)
 
     def get_output_embeddings(self):
         return self.lm_head
@@ -1475,7 +1614,8 @@ class ChatGLMForConditionalGeneration(ChatGLMPreTrainedModel):
         self.config.quantization_bit = bits
         self.config.quantization_embeddings = quantize_embeddings
 
-        self.transformer = quantize(self.transformer, bits, use_quantization_cache=use_quantization_cache, empty_init=empty_init, **kwargs)
+        self.transformer = quantize(self.transformer, bits, use_quantization_cache=use_quantization_cache,
+                                    empty_init=empty_init, **kwargs)
 
         if quantize_embeddings:
             logger.info("Applying quantization to embeddings")
@@ -1488,7 +1628,7 @@ class ChatGLMForConditionalGeneration(ChatGLMPreTrainedModel):
                 empty_init=True,
                 device=self.transformer.word_embeddings.weight.device,
             )
-            self.lm_head =  QuantizedLinear(
+            self.lm_head = QuantizedLinear(
                 weight_bit_width=bits,
                 weight_tensor=self.lm_head.weight.to(self.device),
                 bias_tensor=None,
