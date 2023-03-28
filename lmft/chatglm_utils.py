@@ -99,7 +99,7 @@ class ModelArgs:
     n_gpu: int = 1
     no_cache: bool = False
     no_save: bool = False
-    not_saved_args: tuple = field(default_factory=('dataset_class',))
+    not_saved_args: list = field(default_factory=list)
     num_train_epochs: int = 1
     optimizer: str = "AdamW"
     output_dir: str = "outputs/"
@@ -148,6 +148,8 @@ class ModelArgs:
         os.makedirs(output_dir, exist_ok=True)
         with open(os.path.join(output_dir, "model_args.json"), "w", encoding='utf-8') as f:
             args_dict = self.get_args_for_saving()
+            if args_dict['dataset_class'] is not None and not isinstance(args_dict["dataset_class"], str):
+                args_dict['dataset_class'] = type(args_dict['dataset_class']).__name__
             if args_dict["tokenizer_type"] is not None and not isinstance(args_dict["tokenizer_type"], str):
                 args_dict["tokenizer_type"] = type(args_dict["tokenizer_type"]).__name__
             json.dump(args_dict, f)
