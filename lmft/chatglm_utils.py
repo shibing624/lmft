@@ -99,7 +99,7 @@ class ModelArgs:
     n_gpu: int = 1
     no_cache: bool = False
     no_save: bool = False
-    not_saved_args: list = field(default_factory=['dataset_class'])
+    not_saved_args: tuple = field(default_factory=('dataset_class',))
     num_train_epochs: int = 1
     optimizer: str = "AdamW"
     output_dir: str = "outputs/"
