@@ -270,7 +270,10 @@ class ChatGLMTune:
         Trains the model using 'train_data'
 
         Args:
-            train_data: datasets Dataset object or path to file containing training data
+            train_data: Pandas DataFrame containing the 3 columns - `instruction`, `input`, `output`.
+                        - `instruction`: The instruction text. (E.g. `"correct the following:"`)
+                        - `input`: The input text sequence. `instruction` is automatically prepended to form the full input. (<instruction> `\n` <input>)
+                        - `output`: The target sequence
             output_dir: The directory where model files will be saved. If not given, self.args.output_dir will be used.
             show_running_loss (optional): Set to False to prevent running loss from being printed to console. Defaults to True.
             args (optional): Optional changes to the args dict of the model. Any changes made will persist for the model.

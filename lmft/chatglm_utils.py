@@ -92,7 +92,7 @@ class ModelArgs:
     logging_steps: int = 50
     manual_seed: int = None
     max_grad_norm: float = 1.0
-    max_seq_length: int = 512
+    max_seq_length: int = 384  # max length of input sequence
     model_name: str = None
     model_type: str = None
     multiprocessing_chunksize: int = -1
@@ -121,7 +121,6 @@ class ModelArgs:
     thread_count: int = None
     tokenizer_name: str = None
     tokenizer_type: str = None
-    train_batch_size: int = 8
     train_custom_parameters_only: bool = False
     use_cached_eval_features: bool = False
     use_early_stopping: bool = False
@@ -172,7 +171,7 @@ class ChatGLMArgs(ModelArgs):
     model_class: str = "ChatGLMArgs"
     dataset_class: Dataset = None
     debug: bool = False
-    max_length = 384
+    max_length = 384  # max length of the sequence to be generated
     do_sample: bool = True
     early_stopping: bool = True
     evaluate_generated_text: bool = False
@@ -203,10 +202,10 @@ class ChatGLMArgs(ModelArgs):
 def preprocess_batch_for_hf_dataset(dataset, tokenizer, args):
     return tokenizer.prepare_seq2seq_batch(
         src_texts=[
-            prefix + input_text
-            for prefix, input_text in zip(dataset["prefix"], dataset["input_text"])
+            f"问：{instruction}\n" + f"{input_text}\n" + "答：" if input_text else f"问：{instruction}\n" + "答："
+            for instruction, input_text in zip(dataset["instruction"], dataset["input"])
         ],
-        tgt_texts=dataset["target_text"],
+        tgt_texts=dataset["output"],
         max_length=args.max_seq_length,
         max_target_length=args.max_length,
         padding="max_length",
@@ -241,9 +240,9 @@ def load_hf_dataset(data, tokenizer, args):
 
 
 def preprocess_data(data):
-    prefix, input_text, target_text, tokenizer, args = data
+    instruction, input_text, target_text, tokenizer, args = data
 
-    prompt = f"问：{prefix}\n"
+    prompt = f"问：{instruction}\n"
     if input_text:
         prompt += f"{input_text}\n"
     prompt += "答："
@@ -263,7 +262,7 @@ def preprocess_data(data):
             [target_text],
             padding="max_length",
             return_tensors='np',
-            max_length=args.max_seq_length,
+            max_length=args.max_length,
             truncation=True,
             return_attention_mask=False,
             return_token_type_ids=False,
@@ -271,7 +270,7 @@ def preprocess_data(data):
         )
     target_ids = tgt["input_ids"][0]
     input_ids = prompt_ids + target_ids
-    input_ids = input_ids[:args.max_seq_length] + [tokenizer.eos_token_id]
+    input_ids = input_ids[:(args.max_seq_length + args.max_length)] + [tokenizer.eos_token_id]
 
     return input_ids
 
@@ -297,9 +296,9 @@ class ChatGLMDataset(Dataset):
             logger.info(" Creating features from dataset file at %s" % args.cache_dir)
 
             data = [
-                (prefix, input_text, target_text, tokenizer, args)
-                for prefix, input_text, target_text in zip(
-                    data["prefix"], data["input_text"], data["target_text"]
+                (instruction, input_text, target_text, tokenizer, args)
+                for instruction, input_text, target_text in zip(
+                    data["instruction"], data["input"], data["output"]
                 )
             ]
 
@@ -517,7 +516,7 @@ class RotaryEmbedding(torch.nn.Module):
             self.sin_cached = None
         self.precision = precision
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+    def _load_from_state_dict(self, state_dict, instruction, local_metadata, strict, missing_keys, unexpected_keys,
                               error_msgs):
         pass
 
