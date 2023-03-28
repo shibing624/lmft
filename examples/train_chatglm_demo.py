@@ -40,6 +40,10 @@ def finetune_demo():
     parser.add_argument('--batch_size', default=2, type=int, help='Batch size')
     args = parser.parse_args()
     logger.info(args)
+    # infer with origin chatGLM model
+    origin_chat_demo(args)
+
+    # finetune chatGLM model
     if args.do_train:
         logger.info('Loading data...')
         model_args = {
@@ -72,8 +76,8 @@ def finetune_demo():
         print(response)
 
 
-def origin_chat_demo():
-    m = ChatGLMTune('chatglm', "THUDM/chatglm-6b", args={'use_lora': False})
+def origin_chat_demo(args):
+    m = ChatGLMTune(args.model_type, args.model_name, args={'use_lora': False})
     response, history = m.chat("你好", history=[])
     print(response)
     response, history = m.chat("晚上睡不着应该怎么办", history=history)
@@ -81,5 +85,4 @@ def origin_chat_demo():
 
 
 if __name__ == '__main__':
-    origin_chat_demo()
     finetune_demo()
