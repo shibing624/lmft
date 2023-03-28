@@ -15,6 +15,7 @@ from peft import get_peft_model, LoraConfig, TaskType
 from tqdm.auto import tqdm
 from transformers import AutoConfig, AutoTokenizer, Trainer
 from transformers import TrainingArguments
+from transformers.generation.utils import LogitsProcessorList
 from transformers.trainer import TRAINING_ARGS_NAME
 
 from .chatglm_utils import (
@@ -394,7 +395,6 @@ class ChatGLMTune:
 
         all_outputs = []
         if logits_processor is None:
-            from transformers.generation.utils import LogitsProcessorList
             logits_processor = LogitsProcessorList()
         logits_processor.append(InvalidScoreLogitsProcessor())
         # Batching
@@ -406,7 +406,7 @@ class ChatGLMTune:
                 desc="Generating outputs",
                 disable=self.args.silent,
         ):
-            inputs = self.tokenizer.encode(batch, add_special_tokens=False, return_tensors='pt').to(self.device)
+            input_ids = self.tokenizer.encode(batch, return_tensors='pt').to(self.device)
             gen_kwargs = {
                 "max_length": self.args.max_length,
                 "num_beams": self.args.num_beams,
@@ -416,13 +416,11 @@ class ChatGLMTune:
                 "logits_processor": logits_processor,
                 **kwargs
             }
-            outputs = self.model.generate(**inputs, **gen_kwargs)
-            for idx, generated_sequence in enumerate(outputs):
+            outputs = self.model.generate(input_ids=input_ids, **gen_kwargs)
+            for idx, (prompt_text, generated_sequence) in enumerate(zip(batch, outputs)):
                 generated_sequence = generated_sequence.tolist()
                 # Decode text
                 text = self.tokenizer.decode(generated_sequence, skip_special_tokens=True)
-                # Add the prompt at the beginning of the sequence. Remove the excess text that was used for pre-processing
-                prompt_text = batch[idx]
                 prompt_len = len(prompt_text)
                 gen_text = text[prompt_len:]
                 if keep_prompt:
