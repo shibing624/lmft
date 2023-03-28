@@ -41,11 +41,8 @@ def finetune_demo():
     parser.add_argument('--batch_size', default=2, type=int, help='Batch size')
     args = parser.parse_args()
     logger.info(args)
-    # infer with origin chatGLM model
-    if args.do_origin:
-        origin_chat_demo(args)
 
-    # finetune chatGLM model
+    # fine-tune chatGLM model
     if args.do_train:
         logger.info('Loading data...')
         model_args = {
@@ -71,25 +68,23 @@ def finetune_demo():
         test_data = load_data(args.test_file)[:10]
         test_df = pd.DataFrame(test_data, columns=["instruction", "input", "output"])
         logger.debug('test_df: {}'.format(test_df))
-        prompts = [f"问：{df['instruction']}\n{df['input']}\n答：" if len(df['input']) > 0 else f"问：{df['instruction']}\n答："
-                   for df in test_df[:10]]
-        r = model.predict(prompts)
-        for i, j in zip(prompts, r):
-            print(i)
-            print(j)
-            print('------------------')
+
+        def get_prompt(arr):
+            if arr['input'].strip():
+                return f"问：{arr['instruction']}\n{arr['input']}\n答："
+            else:
+                return f"问：{arr['instruction']}\n答："
+
+        test_df['prompt'] = test_df.apply(get_prompt, axis=1)
+        test_df['predict_after'] = model.predict(test_df['prompt'].tolist())
+        ref_model = ChatGLMTune(args.model_type, args.model_name, args={'use_lora': False})
+        test_df['predict_before'] = ref_model.predict(test_df['prompt'].tolist())
+        print(test_df)
+
         response, history = model.chat("你好", history=[])
         print(response)
         response, history = model.chat("晚上睡不着应该怎么办", history=history)
         print(response)
-
-
-def origin_chat_demo(args):
-    m = ChatGLMTune(args.model_type, args.model_name, args={'use_lora': False})
-    response, history = m.chat("你好", history=[])
-    print(response)
-    response, history = m.chat("晚上睡不着应该怎么办", history=history)
-    print(response)
 
 
 if __name__ == '__main__':
