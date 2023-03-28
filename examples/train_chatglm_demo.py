@@ -62,8 +62,7 @@ def finetune_demo():
 
         model.train_model(train_df)
     if args.do_predict:
-        model = ChatGLMTune(args.model_type, args.model_name,
-                            args={"eval_batch_size": args.batch_size, 'use_lora': True})
+        model = ChatGLMTune(args.model_type, args.model_name, args={'use_lora': True})
         test_data = load_data(args.test_file)[:10]
         test_df = pd.DataFrame(test_data, columns=["instruction", "input", "output"])
         logger.debug('test_df: {}'.format(test_df))

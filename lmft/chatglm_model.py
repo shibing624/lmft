@@ -373,7 +373,7 @@ class ChatGLMTune:
         return response, history
 
     @torch.no_grad()
-    def predict(self, sentences, logits_processor=None, **kwargs):
+    def predict(self, sentences, logits_processor=None, keep_prompt=False, **kwargs):
         """
         Performs predictions on a list of text.
 
@@ -406,7 +406,7 @@ class ChatGLMTune:
                 desc="Generating outputs",
                 disable=self.args.silent,
         ):
-            inputs = self.tokenizer(batch, padding=True, return_tensors='pt').to(self.device)
+            inputs = self.tokenizer.encode(batch, add_special_tokens=False, return_tensors='pt').to(self.device)
             gen_kwargs = {
                 "max_length": self.args.max_length,
                 "num_beams": self.args.num_beams,
@@ -417,9 +417,20 @@ class ChatGLMTune:
                 **kwargs
             }
             outputs = self.model.generate(**inputs, **gen_kwargs)
-            all_outputs.extend(outputs.cpu().numpy())
-        outputs = [self.tokenizer.decode(output_id) for output_id in all_outputs]
-        return outputs
+            for idx, generated_sequence in enumerate(outputs):
+                generated_sequence = generated_sequence.tolist()
+                # Decode text
+                text = self.tokenizer.decode(generated_sequence, skip_special_tokens=True)
+                # Add the prompt at the beginning of the sequence. Remove the excess text that was used for pre-processing
+                prompt_text = batch[idx]
+                prompt_len = len(prompt_text)
+                gen_text = text[prompt_len:]
+                if keep_prompt:
+                    total_sequence = prompt_text + gen_text
+                else:
+                    total_sequence = gen_text
+                all_outputs.append(total_sequence)
+        return all_outputs
 
     def _move_model_to_device(self):
         self.model.to(self.device)
