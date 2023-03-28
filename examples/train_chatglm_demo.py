@@ -76,15 +76,18 @@ def finetune_demo():
 
         test_df['prompt'] = test_df.apply(get_prompt, axis=1)
         test_df['predict_after'] = model.predict(test_df['prompt'].tolist())
-        ref_model = ChatGLMTune(args.model_type, args.model_name, args={'use_lora': False})
-        test_df['predict_before'] = ref_model.predict(test_df['prompt'].tolist())
-        print(test_df)
-        test_df.to_csv('test_result.csv', index=False, encoding='utf-8')
 
         response, history = model.chat("你好", history=[])
         print(response)
         response, history = model.chat("晚上睡不着应该怎么办", history=history)
         print(response)
+        del model
+
+        ref_model = ChatGLMTune(args.model_type, args.model_name, args={'use_lora': False})
+        test_df['predict_before'] = ref_model.predict(test_df['prompt'].tolist())
+        logger.debug('test_df result: {}'.format(test_df))
+        out_df = test_df[['instruction', 'input', 'output', 'predict_before', 'predict_after']]
+        out_df.to_json('test_result.json', force_ascii=False, orient='records', lines=True)
 
 
 if __name__ == '__main__':
