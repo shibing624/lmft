@@ -406,7 +406,7 @@ class ChatGLMTune:
                 desc="Generating outputs",
                 disable=self.args.silent,
         ):
-            input_ids = self.tokenizer.encode(batch, return_tensors='pt').to(self.device)
+            inputs = self.tokenizer(batch, padding=True, return_tensors='pt').to(self.device)
             gen_kwargs = {
                 "max_length": self.args.max_length,
                 "num_beams": self.args.num_beams,
@@ -416,9 +416,8 @@ class ChatGLMTune:
                 "logits_processor": logits_processor,
                 **kwargs
             }
-            outputs = self.model.generate(input_ids=input_ids, **gen_kwargs)
+            outputs = self.model.generate(**inputs, **gen_kwargs)
             for idx, (prompt_text, generated_sequence) in enumerate(zip(batch, outputs)):
-                generated_sequence = generated_sequence.tolist()
                 # Decode text
                 text = self.tokenizer.decode(generated_sequence, skip_special_tokens=True)
                 prompt_len = len(prompt_text)
