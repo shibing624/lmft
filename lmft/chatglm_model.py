@@ -10,7 +10,6 @@ from typing import Tuple, List
 import numpy as np
 import torch
 import torch.nn as nn
-from datasets import load_dataset
 from loguru import logger
 from peft import get_peft_model, LoraConfig, TaskType
 from tqdm.auto import tqdm
@@ -23,7 +22,7 @@ from .chatglm_utils import (
     ChatGLMArgs,
     InvalidScoreLogitsProcessor,
     load_hf_dataset,
-    ChatGLMDataset
+    ChatGLMDataset,
 )
 
 try:
@@ -179,57 +178,15 @@ class ChatGLMTune:
                 position_ids[context_length - 1:] = mask_position
         return attention_mask, position_ids
 
-    # def build_dataset(self, dataset_name_or_path="shibing624/alpaca-zh", max_seq_length=512):
-    #     """
-    #     Build dataset for training. This builds the dataset from `load_dataset`, one should
-    #     customize this function to train the model on its own dataset.
-    #
-    #     Args:
-    #         dataset_name_or_path (`str`):
-    #             The name of the dataset to be loaded.
-    #
-    #     Returns:
-    #         dataloader (`torch.utils.data.DataLoader`):
-    #             The dataloader for the dataset.
-    #     """
-    #     # load datasets
-    #     if os.path.exists(dataset_name_or_path):
-    #         ds = load_dataset("json", data_files=dataset_name_or_path)
-    #         ds = ds['train']
-    #     else:
-    #         ds = load_dataset(dataset_name_or_path, split="train")
-    #     if self.args.debug:
-    #         ds = ds.select(range(20))
-    #     ds = ds.rename_columns({"output": "target"})
-    #     ds = ds.filter(lambda x: len(x["target"]) > 0, batched=False)
-    #
-    #     def tokenize(example):
-    #         prompt = f"问：{example['instruction']}\n"
-    #         if example.get("input", ""):
-    #             prompt += f"{example['input']}\n"
-    #         prompt += "答："
-    #         example['prompt'] = prompt
-    #
-    #         prompt_ids = self.tokenizer.encode(prompt, max_length=max_seq_length, truncation=True)
-    #         target_ids = self.tokenizer.encode(example["target"], max_length=max_seq_length, truncation=True,
-    #                                            add_special_tokens=False)
-    #         input_ids = prompt_ids + target_ids
-    #         example["input_ids"] = input_ids[:max_seq_length] + [self.tokenizer.eos_token_id]
-    #         example["seq_len"] = len(prompt_ids)
-    #         return example
-    #
-    #     ds = ds.map(tokenize, batched=False)
-    #     return ds
-
     def data_collator(self, batch):
-        len_ids = [len(example["input_ids"]) for example in batch]
+        len_ids = [len(example) for example in batch]
         longest = max(len_ids)
         input_ids = []
         attention_mask_list = []
         position_ids_list = []
         labels_list = []
         for ids_l, feature in sorted(zip(len_ids, batch), key=lambda x: -x[0]):
-            ids = feature["input_ids"]
+            ids = feature.tolist()
             seq_len = ids.index(self.tokenizer.bos_token_id)
             label_pad_token_id = -100
             labels = (

@@ -56,13 +56,13 @@ def finetune_demo():
         model = ChatGLMTune(args.model_type, args.model_name, args=model_args)
         train_data = load_data(args.train_file)
         logger.debug('train_data: {}'.format(train_data[:10]))
-        train_df = pd.DataFrame(train_data, columns=["instruction", "input", "target"])
+        train_df = pd.DataFrame(train_data, columns=["instruction", "input", "output"])
 
         model.train_model(train_df)
     if args.do_predict:
         model = ChatGLMTune(args.model_type, args.output_dir, args={"eval_batch_size": args.batch_size, })
         test_data = load_data(args.test_file)[:10]
-        test_df = pd.DataFrame(test_data, columns=["instruction", "input", "target"])
+        test_df = pd.DataFrame(test_data, columns=["instruction", "input", "output"])
         logger.debug('test_df: {}'.format(test_df))
         r = model.predict(['你是谁', '三原色是啥'])
         print(r)
