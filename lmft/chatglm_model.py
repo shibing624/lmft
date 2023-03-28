@@ -16,7 +16,6 @@ from peft import get_peft_model, LoraConfig, TaskType
 from tqdm.auto import tqdm
 from transformers import AutoConfig, AutoTokenizer, Trainer
 from transformers import TrainingArguments
-from transformers.generation.utils import LogitsProcessorList
 from transformers.trainer import TRAINING_ARGS_NAME
 
 from .chatglm_utils import (
@@ -204,16 +203,17 @@ class ChatGLMTune:
         ds = ds.filter(lambda x: len(x["target"]) > 0, batched=False)
 
         def tokenize(example):
-            prompt = f"Instruction: {example['instruction']}\n"
+            prompt = f"问：{example['instruction']}\n"
             if example.get("input", ""):
-                prompt += f"Input: {example['input']}\n"
-            prompt += "Answer: "
+                prompt += f"{example['input']}\n"
+            prompt += "答："
             example['prompt'] = prompt
+
             prompt_ids = self.tokenizer.encode(prompt, max_length=max_seq_length, truncation=True)
             target_ids = self.tokenizer.encode(example["target"], max_length=max_seq_length, truncation=True,
                                                add_special_tokens=False)
-            input_ids = prompt_ids + target_ids + [self.tokenizer.eos_token_id]
-            example["input_ids"] = input_ids[:max_seq_length]
+            input_ids = prompt_ids + target_ids
+            example["input_ids"] = input_ids[:max_seq_length] + [self.tokenizer.eos_token_id]
             example["seq_len"] = len(prompt_ids)
             return example
 
@@ -432,6 +432,7 @@ class ChatGLMTune:
 
         all_outputs = []
         if logits_processor is None:
+            from transformers.generation.utils import LogitsProcessorList
             logits_processor = LogitsProcessorList()
         logits_processor.append(InvalidScoreLogitsProcessor())
         # Batching
