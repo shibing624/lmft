@@ -33,6 +33,7 @@ def finetune_demo():
     parser.add_argument('--model_name', default='THUDM/chatglm-6b', type=str, help='Transformers model or path')
     parser.add_argument('--do_train', action='store_true', help='Whether to run training.')
     parser.add_argument('--do_predict', action='store_true', help='Whether to run predict.')
+    parser.add_argument('--do_origin', action='store_true', help='Whether to run origin model predict(no finetune)')
     parser.add_argument('--output_dir', default='./outputs/', type=str, help='Model output directory')
     parser.add_argument('--max_seq_length', default=256, type=int, help='Input max sequence length')
     parser.add_argument('--max_length', default=256, type=int, help='Output max sequence length')
@@ -41,7 +42,8 @@ def finetune_demo():
     args = parser.parse_args()
     logger.info(args)
     # infer with origin chatGLM model
-    origin_chat_demo(args)
+    if args.do_origin:
+        origin_chat_demo(args)
 
     # finetune chatGLM model
     if args.do_train:
@@ -69,8 +71,13 @@ def finetune_demo():
         test_data = load_data(args.test_file)[:10]
         test_df = pd.DataFrame(test_data, columns=["instruction", "input", "output"])
         logger.debug('test_df: {}'.format(test_df))
-        r = model.predict(['你是谁', '三原色是啥'])
-        print(r)
+        prompts = [f"问：{df['instruction']}\n{df['input']}\n答：" if len(df['input']) > 0 else f"问：{df['instruction']}\n答："
+                   for df in test_df[:10]]
+        r = model.predict(prompts)
+        for i, j in zip(prompts, r):
+            print(i)
+            print(j)
+            print('------------------')
         response, history = model.chat("你好", history=[])
         print(response)
         response, history = model.chat("晚上睡不着应该怎么办", history=history)
