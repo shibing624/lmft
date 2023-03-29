@@ -23,7 +23,7 @@ def finetune_demo():
     parser.add_argument('--max_seq_length', default=256, type=int, help='Input max sequence length')
     parser.add_argument('--max_length', default=256, type=int, help='Output max sequence length')
     parser.add_argument('--num_epochs', default=3, type=int, help='Number of training epochs')
-    parser.add_argument('--batch_size', default=1, type=int, help='Batch size')
+    parser.add_argument('--batch_size', default=2, type=int, help='Batch size')
     args = parser.parse_args()
     logger.info(args)
     model = None
@@ -47,8 +47,11 @@ def finetune_demo():
         model.train_model(args.train_file)
     if args.do_predict:
         if model is None:
-            model = ChatGLMTune(args.model_type, args.model_name,
-                                args={'use_lora': True, 'eval_batch_size': args.batch_size})
+            model = ChatGLMTune(
+                args.model_type, args.model_name,
+                args={'use_lora': True, 'eval_batch_size': args.batch_size,
+                      'output_dir': args.output_dir}
+            )
         response, history = model.chat("给出三个保持健康的秘诀。", history=[])
         print(response)
         response, history = model.chat("describe atom's struct。", history=history)

@@ -188,7 +188,7 @@ class ChatGLMArgs(ModelArgs):
     model_name_or_path: Optional[str] = field(default="THUDM/chatglm-6b")
     dataset_name_or_path: Optional[str] = field(default="shibing624/alpaca-zh")
     use_lora: bool = True
-    lora_name: str = field(default="lora.pt")
+    lora_name: str = field(default="adapter_model.bin")
     lora_rank: int = field(default=8)
     lora_alpha = 32
     lora_dropout = 0.1

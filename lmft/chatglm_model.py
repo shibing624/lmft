@@ -42,13 +42,6 @@ MODEL_CLASSES = {
 }
 
 
-def save_tunable_parameters(model, path):
-    saved_params = {
-        k: v.to("cpu") for k, v in model.named_parameters() if v.requires_grad
-    }
-    torch.save(saved_params, path)
-
-
 class FinetuneTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False):
         return model(
@@ -58,10 +51,13 @@ class FinetuneTrainer(Trainer):
             labels=inputs["labels"],
         ).loss
 
-    def save_model(self, output_dir=None, _internal_call=False, lora_name='lora.pt'):
+    def save_model(self, output_dir=None, _internal_call=False, lora_name='adapter_model.bin'):
         os.makedirs(output_dir, exist_ok=True)
         torch.save(self.args, os.path.join(output_dir, TRAINING_ARGS_NAME))
-        save_tunable_parameters(self.model, os.path.join(output_dir, lora_name))
+        saved_params = {
+            k: v.to("cpu") for k, v in self.model.named_parameters() if v.requires_grad
+        }
+        torch.save(saved_params, os.path.join(output_dir, lora_name))
 
 
 class CastOutputToFloat(nn.Sequential):
@@ -413,6 +409,7 @@ class ChatGLMTune:
                 "do_sample": self.args.do_sample,
                 "top_p": self.args.top_p,
                 "temperature": self.args.temperature,
+                "eos_token_id": self.tokenizer.eos_token_id,
                 "logits_processor": logits_processor,
                 **kwargs
             }
@@ -487,9 +484,6 @@ class ChatGLMTune:
                     scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt")
                 )
             # save model
-            save_tunable_parameters(
-                self.model, os.path.join(self.args.output_dir, self.args.lora_name)
-            )
             self.save_model_args(output_dir)
 
         if results:
