@@ -4,6 +4,7 @@
 @description:
 """
 import os
+import re
 import random
 from typing import Tuple, List
 
@@ -343,40 +344,30 @@ class ChatGLMTune:
                 logger.info(f"Loaded lora model from {lora_path}")
                 self.lora_loaded = True
 
-    @torch.no_grad()
-    def chat(self, query: str, history: List[Tuple[str, str]] = None, logits_processor=None, **kwargs):
-        """
-        Chat with the model
-        :param query:
-        :param history:
-        :param logits_processor:
-        :param kwargs:
-        :return: response, history
-        """
-        self._move_model_to_device()
-        self.model.eval()
-        if history is None:
-            history = []
-        if not history:
-            prompt = query
-        else:
-            prompt = ""
-            for i, (old_query, response) in enumerate(history):
-                prompt += "[Round {}]\n问：{}\n答：{}\n".format(i, old_query, response)
-            prompt += "[Round {}]\n问：{}\n答：".format(len(history), query)
-        response = self.predict([prompt], logits_processor=logits_processor, **kwargs)[0]
-        response = response.strip()
-        history = history + [(query, response)]
-        return response, history
+    def process_response(self, response):
+        response = response.strip().replace("[[训练时间]]", "2023年")
+        punkts = [
+            [",", "，"],
+            ["!", "！"],
+            [":", "："],
+            [";", "；"],
+            ["\?", "？"],
+        ]
+        for item in punkts:
+            response = re.sub(r"([\u4e00-\u9fff])%s" % item[0], r"\1%s" % item[1], response)
+            response = re.sub(r"%s([\u4e00-\u9fff])" % item[0], r"%s\1" % item[1], response)
+        return response
 
     @torch.no_grad()
-    def predict(self, sentences, logits_processor=None, keep_prompt=False, **kwargs):
+    def predict(self, sentences, logits_processor=None, keep_prompt=False, max_length=None, **kwargs):
         """
         Performs predictions on a list of text.
 
         Args:
             sentences: A python list of text (str) to be sent to the model for prediction. 
             logits_processor: A LogitsProcessor object that will be applied to the model's
+            keep_prompt: Whether to keep the prompt in the generated text.
+            max_length: The maximum length of the sequence to be generated.
 
         Returns:
             preds: A python list of the generated sequences.
@@ -404,7 +395,7 @@ class ChatGLMTune:
         ):
             inputs = self.tokenizer(batch, padding=True, return_tensors='pt').to(self.device)
             gen_kwargs = {
-                "max_length": self.args.max_length,
+                "max_length": max_length if max_length else self.args.max_length,
                 "num_beams": self.args.num_beams,
                 "do_sample": self.args.do_sample,
                 "top_p": self.args.top_p,
@@ -419,12 +410,44 @@ class ChatGLMTune:
                 text = self.tokenizer.decode(generated_sequence, skip_special_tokens=True)
                 prompt_len = len(prompt_text)
                 gen_text = text[prompt_len:]
+                gen_text = self.process_response(gen_text)
                 if keep_prompt:
                     total_sequence = prompt_text + gen_text
                 else:
                     total_sequence = gen_text
                 all_outputs.append(total_sequence)
         return all_outputs
+
+    @torch.no_grad()
+    def chat(self, query: str, history: List[Tuple[str, str]] = None,
+             logits_processor=None, keep_prompt=False, max_length=2048, **kwargs):
+        """
+        Chat with the model
+        :param query:
+        :param history:
+        :param logits_processor:
+        :param keep_prompt:
+        :param max_length:
+        :param kwargs:
+        :return: response, history
+        """
+        self._move_model_to_device()
+        self.model.eval()
+        if history is None:
+            history = []
+        if not history:
+            prompt = query
+        else:
+            prompt = ""
+            for i, (old_query, response) in enumerate(history):
+                prompt += "[Round {}]\n问：{}\n答：{}\n".format(i, old_query, response)
+            prompt += "[Round {}]\n问：{}\n答：".format(len(history), query)
+        response = self.predict(
+            [prompt], logits_processor=logits_processor,
+            keep_prompt=keep_prompt, max_length=max_length, **kwargs)[0]
+        response = response.strip()
+        history = history + [(query, response)]
+        return response, history
 
     def _move_model_to_device(self):
         self.model.to(self.device)

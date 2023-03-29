@@ -36,7 +36,7 @@ def finetune_demo():
     parser.add_argument('--output_dir', default='./outputs/', type=str, help='Model output directory')
     parser.add_argument('--max_seq_length', default=256, type=int, help='Input max sequence length')
     parser.add_argument('--max_length', default=256, type=int, help='Output max sequence length')
-    parser.add_argument('--num_epochs', default=3, type=int, help='Number of training epochs')
+    parser.add_argument('--num_epochs', default=1, type=int, help='Number of training epochs')
     parser.add_argument('--batch_size', default=2, type=int, help='Batch size')
     args = parser.parse_args()
     logger.info(args)
