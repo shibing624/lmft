@@ -73,7 +73,7 @@ pip install --no-deps .
 支持自定义数据集，数据集格式参考[examples/data/test.csv](examples/data/test.csv)。
 
 
-example: [examples/train_chatglm_demo.py](examples/train_chatglm_demo.py)
+example: [examples/training_chatglm_demo.py](examples/training_chatglm_demo.py)
 
 ```python
 import sys
@@ -85,7 +85,7 @@ from lmft import ChatGLMTune
 def finetune_demo():
     m = ChatGLMTune('chatglm', "THUDM/chatglm-6b", args={'use_lora': True})
     m.train_model(train_data='shibing624/alpaca-zh')
-    r = m.predict(['你是谁', '三原色是啥'])
+    r = m.predict(['给出三个保持健康的秘诀。', '描述原子的结构。'])
     print(r)
     response, history = m.chat("你好", history=[])
     print(response)
@@ -108,8 +108,8 @@ if __name__ == '__main__':
 
 output:
 ```
-问:hi
-答:hi 
+问:你好
+答:你好
 
 [Round 1]
 问:晚上睡不着应该怎么办

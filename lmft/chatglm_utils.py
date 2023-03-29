@@ -231,6 +231,7 @@ def load_hf_dataset(data, tokenizer, args):
             if args.reprocess_input_data
             else "reuse_dataset_if_exists",
         )
+        dataset = dataset["train"]
     else:
         dataset = HFDataset.from_pandas(data)
 
