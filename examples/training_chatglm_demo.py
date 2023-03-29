@@ -40,7 +40,7 @@ def finetune_demo():
     parser.add_argument('--batch_size', default=2, type=int, help='Batch size')
     args = parser.parse_args()
     logger.info(args)
-
+    model = None
     # fine-tune chatGLM model
     if args.do_train:
         logger.info('Loading data...')
@@ -54,6 +54,7 @@ def finetune_demo():
             "num_train_epochs": args.num_epochs,
             "save_eval_checkpoints": False,
             "output_dir": args.output_dir,
+            'eval_batch_size': args.batch_size,
         }
         model = ChatGLMTune(args.model_type, args.model_name, args=model_args)
         train_data = load_data(args.train_file)
@@ -62,8 +63,9 @@ def finetune_demo():
 
         model.train_model(train_df)
     if args.do_predict:
-        model = ChatGLMTune(args.model_type, args.model_name,
-                            args={'use_lora': True, 'eval_batch_size': args.batch_size})
+        if model is None:
+            model = ChatGLMTune(args.model_type, args.model_name,
+                                args={'use_lora': True, 'eval_batch_size': args.batch_size})
         test_data = load_data(args.test_file)[:10]
         test_df = pd.DataFrame(test_data, columns=["instruction", "input", "output"])
         logger.debug('test_df: {}'.format(test_df))
