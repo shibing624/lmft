@@ -188,7 +188,7 @@ class ChatGLMTune:
         labels_list = []
         for ids_l, feature in sorted(zip(len_ids, batch), key=lambda x: -x[0]):
             ids = list(feature)
-            seq_len = ids.index(self.tokenizer.bos_token_id)
+            seq_len = ids.index(self.tokenizer.bos_token_id) + 1  # is equal to `seq_len = seq.index(150004) + 1`
             label_pad_token_id = -100
             labels = (
                     [label_pad_token_id] * (seq_len - 1)
