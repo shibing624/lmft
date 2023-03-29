@@ -16,7 +16,7 @@ def finetune_demo():
     parser.add_argument('--train_file', default='shibing624/alpaca-zh', type=str,
                         help='Datasets name, eg: tatsu-lab/alpaca')
     parser.add_argument('--model_type', default='chatglm', type=str, help='Transformers model type')
-    parser.add_argument('--model_name', default='THUDM/chatglm-6b-int4', type=str, help='Transformers model or path')
+    parser.add_argument('--model_name', default='THUDM/chatglm-6b', type=str, help='Transformers model or path')
     parser.add_argument('--do_train', action='store_true', help='Whether to run training.')
     parser.add_argument('--do_predict', action='store_true', help='Whether to run predict.')
     parser.add_argument('--output_dir', default='./outputs/', type=str, help='Model output directory')
