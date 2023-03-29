@@ -232,6 +232,8 @@ def load_hf_dataset(data, tokenizer, args):
             if args.reprocess_input_data
             else "reuse_dataset_if_exists",
         )
+        # This is not necessarily a train dataset. The datasets library insists on calling it train.
+        dataset = dataset["train"]
     else:
         dataset = HFDataset.from_pandas(data)
 
@@ -242,11 +244,7 @@ def load_hf_dataset(data, tokenizer, args):
 
     dataset.set_format(type="np", columns=["input_ids"])
 
-    if isinstance(data, str):
-        # This is not necessarily a train dataset. The datasets library insists on calling it train.
-        return dataset["train"]
-    else:
-        return dataset
+    return dataset["input_ids"]
 
 
 class ChatGLMDataset(Dataset):
