@@ -220,7 +220,8 @@ def preprocess_data(data):
 
 def preprocess_batch_for_hf_dataset(dataset, tokenizer, args):
     data = (dataset["instruction"], dataset["input"], dataset["output"], tokenizer, args)
-    return preprocess_data(data)
+    dataset['input_ids'] = preprocess_data(data)
+    return dataset
 
 
 def load_hf_dataset(data, tokenizer, args):
@@ -231,7 +232,6 @@ def load_hf_dataset(data, tokenizer, args):
             if args.reprocess_input_data
             else "reuse_dataset_if_exists",
         )
-        dataset = dataset["train"]
     else:
         dataset = HFDataset.from_pandas(data)
 
