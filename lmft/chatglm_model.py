@@ -443,7 +443,6 @@ class ChatGLMTune:
         response = self.predict(
             [prompt], logits_processor=logits_processor,
             keep_prompt=keep_prompt, **kwargs)[0]
-        response = response.strip()
         history = history + [(query, response)]
         return response, history
 
