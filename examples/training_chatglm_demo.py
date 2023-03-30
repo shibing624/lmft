@@ -67,7 +67,7 @@ def finetune_demo():
             model = ChatGLMTune(
                 args.model_type, args.model_name,
                 args={'use_lora': True, 'eval_batch_size': args.batch_size,
-                      'output_dir': args.output_dir}
+                      'output_dir': args.output_dir, "max_length": args.max_length, }
             )
         test_data = load_data(args.test_file)[:10]
         test_df = pd.DataFrame(test_data, columns=["instruction", "input", "output"])
