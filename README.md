@@ -11,7 +11,7 @@
 Language Model Fine-Tuning, for ChatGLM, BELLE, LLaMA fine-tuning.
 
 
-**lmft**实现了ChatGLM-6B的模型finetune。
+**lmft**实现了ChatGLM-6B的模型FineTune。
 
 
 **Guide**
@@ -29,9 +29,6 @@ Language Model Fine-Tuning, for ChatGLM, BELLE, LLaMA fine-tuning.
 #### [THUDM/chatglm-6b](https://huggingface.co/THUDM/chatglm-6b) 模型的Finetune训练
 
 [THUDM/ChatGLM-6B](https://github.com/THUDM/ChatGLM-6B)放出的默认模型，模型以 FP16 精度加载，模型运行需要 13GB 显存，训练需要 22GB 显存(batch_size=2)。
-#### [THUDM/chatglm-6b-int4-qe](https://huggingface.co/THUDM/chatglm-6b-int4-qe) 模型的Finetune训练(todo,机器暂不支持int4)
-
-[THUDM/ChatGLM-6B](https://github.com/THUDM/ChatGLM-6B)放出的int4并对Embedding量化后的模型，模型运行需要 4.3GB 显存，训练需要 8GB 显存(batch_size=2)。
 
 
 # Evaluation
@@ -70,7 +67,7 @@ pip install --no-deps .
 
 ## 训练ChatGLM-6B模型
 
-支持自定义数据集，数据集格式参考[examples/data/test.csv](examples/data/test.csv)。
+支持自定义数据集，数据集格式参考[examples/data/test.tsv](examples/data/test.tsv)。
 
 
 example: [examples/training_chatglm_demo.py](examples/training_chatglm_demo.py)
@@ -126,6 +123,15 @@ output:
 #### dataset
 1. [0.5M生成的中文ChatGPT结果数据](https://huggingface.co/datasets/BelleGroup/generated_train_0.5M_CN)
 2. [50k English Stanford Alpaca dataset](https://github.com/tatsu-lab/stanford_alpaca#data-release)
+
+
+#### FAQ
+1. 问：为啥没有`int4`量化模型的Finetune训练？
+答：THUDM放出了2个int4量化模型，分别是 [THUDM/chatglm-6b-int4](https://huggingface.co/THUDM/chatglm-6b-int4) 和 
+[THUDM/chatglm-6b-int4-qe](https://huggingface.co/THUDM/chatglm-6b-int4-qe) 模型，是基于
+[THUDM/ChatGLM-6B](https://github.com/THUDM/ChatGLM-6B) 的int4并对Embedding量化后的模型，模型运行仅需要 4.3GB 显存，暂不支持训练。
+
+参考：[模型量化(Quantization)原理及其实现方法](https://zhuanlan.zhihu.com/p/79744430)
 
 
 # Contact

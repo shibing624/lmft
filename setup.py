@@ -34,7 +34,7 @@ setup(
     install_requires=[
         "loguru",
         "trl",
-        "transformers",
+        "transformers>=4.27.1",
         "datasets",
         "tqdm",
     ],
