@@ -14,13 +14,13 @@ import torch.nn as nn
 from loguru import logger
 from peft import get_peft_model, LoraConfig, TaskType
 from tqdm.auto import tqdm
-from transformers import AutoConfig, AutoTokenizer, Trainer
-from transformers import TrainingArguments
+from transformers import Trainer, TrainingArguments
 from transformers.generation.utils import LogitsProcessorList
 from transformers.trainer import TRAINING_ARGS_NAME
-
+from .tokenization_chatglm import ChatGLMTokenizer
 from .chatglm_utils import (
     ChatGLMForConditionalGeneration,
+    ChatGLMConfig,
     ChatGLMArgs,
     InvalidScoreLogitsProcessor,
     load_hf_dataset,
@@ -39,7 +39,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "FALSE"
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 MODEL_CLASSES = {
-    "chatglm": (AutoConfig, ChatGLMForConditionalGeneration, AutoTokenizer),
+    "chatglm": (ChatGLMConfig, ChatGLMForConditionalGeneration, ChatGLMTokenizer),
 }
 
 

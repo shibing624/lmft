@@ -18,8 +18,9 @@ def load_data(file_path):
         for line in f:
             line = line.strip('\n')
             terms = line.split('\t')
-            if len(terms) == 3:
-                data.append([terms[0], terms[1], terms[2]])
+            instruction = '对下面中文拼写纠错：'
+            if len(terms) == 2:
+                data.append([instruction, terms[0], terms[1]])
             else:
                 logger.warning(f'line error: {line}')
     return data
@@ -27,15 +28,15 @@ def load_data(file_path):
 
 def finetune_demo():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--train_file', default='data/train.csv', type=str, help='Training data file')
-    parser.add_argument('--test_file', default='data/test.csv', type=str, help='Test data file')
+    parser.add_argument('--train_file', default='data/train.tsv', type=str, help='Training data file')
+    parser.add_argument('--test_file', default='data/test.tsv', type=str, help='Test data file')
     parser.add_argument('--model_type', default='chatglm', type=str, help='Transformers model type')
     parser.add_argument('--model_name', default='THUDM/chatglm-6b', type=str, help='Transformers model or path')
     parser.add_argument('--do_train', action='store_true', help='Whether to run training.')
     parser.add_argument('--do_predict', action='store_true', help='Whether to run predict.')
     parser.add_argument('--output_dir', default='./outputs/', type=str, help='Model output directory')
-    parser.add_argument('--max_seq_length', default=256, type=int, help='Input max sequence length')
-    parser.add_argument('--max_length', default=256, type=int, help='Output max sequence length')
+    parser.add_argument('--max_seq_length', default=128, type=int, help='Input max sequence length')
+    parser.add_argument('--max_length', default=128, type=int, help='Output max sequence length')
     parser.add_argument('--num_epochs', default=1, type=int, help='Number of training epochs')
     parser.add_argument('--batch_size', default=2, type=int, help='Batch size')
     args = parser.parse_args()
