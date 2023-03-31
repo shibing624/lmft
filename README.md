@@ -129,9 +129,9 @@ output:
 1. 问：为啥没有`int4`量化模型的Finetune训练？
 答：THUDM放出了2个int4量化模型，分别是 [THUDM/chatglm-6b-int4](https://huggingface.co/THUDM/chatglm-6b-int4) 和 
 [THUDM/chatglm-6b-int4-qe](https://huggingface.co/THUDM/chatglm-6b-int4-qe) 模型，是基于
-[THUDM/ChatGLM-6B](https://github.com/THUDM/ChatGLM-6B) 的int4并对Embedding量化后的模型，模型运行仅需要 4.3GB 显存，暂不支持训练。
+[THUDM/ChatGLM-6B](https://github.com/THUDM/ChatGLM-6B) 的int4并对Embedding量化后的模型，模型运行仅需要 4.3GB 显存。
 
-参考：[模型量化(Quantization)原理及其实现方法](https://zhuanlan.zhihu.com/p/79744430)
+训练方法参考官方给出的[P-tuning方法](https://github.com/THUDM/ChatGLM-6B/blob/main/ptuning/README.md)，INT4 量化模型的训练最低只需 6.7G 显存。
 
 
 # Contact

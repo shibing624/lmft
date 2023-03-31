@@ -359,7 +359,7 @@ class ChatGLMTune:
         return response
 
     @torch.no_grad()
-    def predict(self, sentences, logits_processor=None, keep_prompt=False, **kwargs):
+    def predict(self, sentences, logits_processor=None, keep_prompt=False, max_length=None, **kwargs):
         """
         Performs predictions on a list of text.
 
@@ -367,6 +367,7 @@ class ChatGLMTune:
             sentences: A python list of text (str) to be sent to the model for prediction. 
             logits_processor: A LogitsProcessor object that will be applied to the model's
             keep_prompt: Whether to keep the prompt in the generated text.
+            max_length: The maximum length of the generated text.
 
         Returns:
             preds: A python list of the generated sequences.
@@ -394,7 +395,7 @@ class ChatGLMTune:
         ):
             inputs = self.tokenizer(batch, padding=True, return_tensors='pt').to(self.device)
             gen_kwargs = {
-                "max_length": self.args.max_length,
+                "max_length": max_length if max_length else self.args.max_length,
                 "num_beams": self.args.num_beams,
                 "do_sample": self.args.do_sample,
                 "top_p": self.args.top_p,
@@ -418,14 +419,15 @@ class ChatGLMTune:
         return all_outputs
 
     @torch.no_grad()
-    def chat(self, query: str, history: List[Tuple[str, str]] = None, logits_processor=None, keep_prompt=False,
-             **kwargs):
+    def chat(self, query: str, history: List[Tuple[str, str]] = None,
+             logits_processor=None, keep_prompt=False, max_length=128, **kwargs):
         """
         Chat with the model
         :param query:
         :param history:
         :param logits_processor:
         :param keep_prompt:
+        :param max_length:
         :param kwargs:
         :return: response, history
         """
@@ -442,7 +444,7 @@ class ChatGLMTune:
             prompt += "[Round {}]\n问：{}\n答：".format(len(history), query)
         response = self.predict(
             [prompt], logits_processor=logits_processor,
-            keep_prompt=keep_prompt, **kwargs)[0]
+            keep_prompt=keep_prompt, max_length=len(prompt) + max_length, **kwargs)[0]
         history = history + [(query, response)]
         return response, history
 
