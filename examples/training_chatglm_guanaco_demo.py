@@ -32,7 +32,7 @@ def preprocess_batch_for_hf_dataset(example, tokenizer, args):
 class GuanacoDataset(Dataset):
     def __init__(self, tokenizer, args, data, mode):
         dataset = load_dataset(data)
-        # dataset = dataset["train"]
+        dataset = dataset["train"]
         dataset = dataset.map(
             lambda x: preprocess_batch_for_hf_dataset(x, tokenizer, args),
             batched=False,

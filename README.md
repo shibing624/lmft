@@ -124,7 +124,7 @@ output:
 1. 50万条中文ChatGPT对话数据集：[BelleGroup/generated_train_0.5M_CN](https://huggingface.co/datasets/BelleGroup/generated_train_0.5M_CN)
 2. 5万条英文ChatGPT羊驼对话数据集：[50k English Stanford Alpaca dataset](https://github.com/tatsu-lab/stanford_alpaca#data-release)
 3. 2万条中文ChatGPT羊驼对话数据集：[shibing624/alpaca-zh](https://huggingface.co/datasets/shibing624/alpaca-zh)
-4. 100万条BELLE发布的中文ChatGPT对话数据集和53万Guanaco发布的175个任务Alpaca模型结果：[Chinese-Vicuna/guanaco_belle_merge_v1.0(BELLE 1.0M+Guanaco)](https://huggingface.co/datasets/Chinese-Vicuna/guanaco_belle_merge_v1.0)
+4. 69万条Guanaco发布的175个任务Alpaca数据集：[Chinese-Vicuna/guanaco_belle_merge_v1.0(0.5M_CN+Guanaco)](https://huggingface.co/datasets/Chinese-Vicuna/guanaco_belle_merge_v1.0)
 
 #### FAQ
 1. 问：为啥没有`int4`量化模型的Finetune训练？
