@@ -121,10 +121,11 @@ output:
 
 
 #### dataset
-1. 50万条中文ChatGPT对话数据集：[BelleGroup/generated_train_0.5M_CN](https://huggingface.co/datasets/BelleGroup/generated_train_0.5M_CN)
-2. 5万条英文ChatGPT羊驼对话数据集：[50k English Stanford Alpaca dataset](https://github.com/tatsu-lab/stanford_alpaca#data-release)
-3. 2万条中文ChatGPT羊驼对话数据集：[shibing624/alpaca-zh](https://huggingface.co/datasets/shibing624/alpaca-zh)
-4. 69万条Guanaco发布的175个任务Alpaca数据集：[Chinese-Vicuna/guanaco_belle_merge_v1.0(0.5M_CN+Guanaco)](https://huggingface.co/datasets/Chinese-Vicuna/guanaco_belle_merge_v1.0)
+1. 50万条中文ChatGPT指令数据集：[BelleGroup/train_0.5M_CN](https://huggingface.co/datasets/BelleGroup/train_0.5M_CN)
+2. 100万条中文ChatGPT指令数据集：[BelleGroup/train_1M_CN](https://huggingface.co/datasets/BelleGroup/train_1M_CN)
+3. 5万条英文ChatGPT指令数据集：[50k English Stanford Alpaca dataset](https://github.com/tatsu-lab/stanford_alpaca#data-release)
+4. 2万条中文ChatGPT指令数据集：[shibing624/alpaca-zh](https://huggingface.co/datasets/shibing624/alpaca-zh)
+5. 69万条中文指令数据集(Belle50万条+Guanaco19万条)：[Chinese-Vicuna/guanaco_belle_merge_v1.0(0.5M_CN+Guanaco)](https://huggingface.co/datasets/Chinese-Vicuna/guanaco_belle_merge_v1.0)
 
 #### FAQ
 1. 问：为啥没有`int4`量化模型的Finetune训练？
