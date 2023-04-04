@@ -12,17 +12,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 from loguru import logger
-from peft import get_peft_model, LoraConfig, TaskType
+from peft import get_peft_model, LoraConfig, TaskType, PeftModel
 from tqdm.auto import tqdm
-from transformers import Trainer, TrainingArguments
-from transformers.generation.utils import LogitsProcessorList
+from transformers import Trainer, TrainingArguments, AutoTokenizer, AutoModel, AutoConfig
 from transformers.trainer import TRAINING_ARGS_NAME
-from .tokenization_chatglm import ChatGLMTokenizer
 from .chatglm_utils import (
-    ChatGLMForConditionalGeneration,
-    ChatGLMConfig,
     ChatGLMArgs,
-    InvalidScoreLogitsProcessor,
     load_hf_dataset,
     ChatGLMDataset,
 )
@@ -39,7 +34,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "FALSE"
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 MODEL_CLASSES = {
-    "chatglm": (ChatGLMConfig, ChatGLMForConditionalGeneration, ChatGLMTokenizer),
+    "chatglm": (AutoConfig, AutoModel, AutoTokenizer),
 }
 
 
@@ -47,8 +42,6 @@ class FinetuneTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False):
         return model(
             input_ids=inputs["input_ids"],
-            attention_mask=inputs["attention_mask"],
-            position_ids=inputs["position_ids"],
             labels=inputs["labels"],
         ).loss
 
@@ -123,16 +116,21 @@ class ChatGLMTune:
         config_class, model_class, tokenizer_class = MODEL_CLASSES[model_type]
         if model_name is None:
             model_name = "THUDM/chatglm-6b"
+        config = AutoConfig.from_pretrained(model_name, trust_remote_code=True, **kwargs)
         if use_cuda and torch.cuda.is_available():
-            self.model = model_class.from_pretrained(model_name, trust_remote_code=True).half().cuda()
+            self.model = model_class.from_pretrained(model_name, config=config, trust_remote_code=True)
+            if self.args.quantization_bit is not None:
+                logger.debug(f"Quantized to {self.args.quantization_bit} bit")
+                self.model = self.model.quantize(self.args.quantization_bit)
+            self.model = self.model.half().cuda()
         else:
-            self.model = model_class.from_pretrained(model_name, trust_remote_code=True).float()
+            self.model = model_class.from_pretrained(model_name, config=config, trust_remote_code=True).float()
 
         self.tokenizer_class = tokenizer_class
         if self.args.tokenizer_name:
             self.tokenizer = tokenizer_class.from_pretrained(self.args.tokenizer_name, trust_remote_code=True)
         else:
-            self.tokenizer = tokenizer_class.from_pretrained(model_name, trust_remote_code=True, **kwargs)
+            self.tokenizer = tokenizer_class.from_pretrained(model_name, trust_remote_code=True)
             self.args.tokenizer_name = self.args.model_name
 
         if not use_cuda:
@@ -145,43 +143,10 @@ class ChatGLMTune:
             self.args.model_name = model_name
         self.lora_loaded = False
 
-    @staticmethod
-    def get_masks_and_position_ids(seq_len, context_length, device, gmask=False, position_encoding_2d=True):
-        mask_position = (
-                seq_len - 2
-        )  # is equal to `seq.index(mask_token)` or `seq.index(150001)`
-        attention_mask = torch.ones((1, context_length, context_length), device=device)
-        attention_mask.tril_()
-        attention_mask[..., : mask_position - 1] = 1
-        attention_mask = (attention_mask < 0.5).bool()
-
-        if position_encoding_2d:
-            seq_length = seq_len - 1  # is equal to `seq_length = seq.index(150004)`
-            position_ids = torch.arange(context_length, dtype=torch.long, device=device)
-            if not gmask:
-                position_ids[seq_length:] = mask_position
-            block_position_ids = torch.cat(
-                (
-                    torch.zeros(seq_length, dtype=torch.long, device=device),
-                    torch.arange(
-                        context_length - seq_length, dtype=torch.long, device=device
-                    )
-                    + 1,
-                )
-            )
-            position_ids = torch.stack((position_ids, block_position_ids), dim=0)
-        else:
-            position_ids = torch.arange(context_length, dtype=torch.long, device=device)
-            if not gmask:
-                position_ids[context_length - 1:] = mask_position
-        return attention_mask, position_ids
-
     def data_collator(self, batch):
         len_ids = [len(example) for example in batch]
         longest = max(len_ids)
         input_ids = []
-        attention_mask_list = []
-        position_ids_list = []
         labels_list = []
         for ids_l, feature in sorted(zip(len_ids, batch), key=lambda x: -x[0]):
             ids = list(feature)
@@ -194,22 +159,13 @@ class ChatGLMTune:
             )
             ids = ids + [self.tokenizer.pad_token_id] * (longest - ids_l)
             _ids = torch.LongTensor(ids)
-            attention_mask, position_ids = self.get_masks_and_position_ids(
-                seq_len, longest, _ids.device, gmask=False
-            )
             labels_list.append(torch.LongTensor(labels))
             input_ids.append(_ids)
-            attention_mask_list.append(attention_mask)
-            position_ids_list.append(position_ids)
         input_ids = torch.stack(input_ids)
         labels = torch.stack(labels_list)
-        attention_mask = torch.stack(attention_mask_list)
-        position_ids = torch.stack(position_ids_list)
         return {
             "input_ids": input_ids,
             "labels": labels,
-            "attention_mask": attention_mask,
-            "position_ids": position_ids,
         }
 
     def train_model(
@@ -332,15 +288,7 @@ class ChatGLMTune:
             lora_path = os.path.join(self.args.output_dir, self.args.lora_name)
             if lora_path and os.path.exists(lora_path):
                 # infer with trained lora model
-                peft_config = LoraConfig(
-                    task_type=TaskType.CAUSAL_LM,
-                    inference_mode=True,
-                    r=self.args.lora_rank,
-                    lora_alpha=self.args.lora_alpha,
-                    lora_dropout=self.args.lora_dropout,
-                )
-                self.model = get_peft_model(self.model, peft_config)
-                self.model.load_state_dict(torch.load(lora_path), strict=False)
+                self.model = PeftModel.from_pretrained(self.model, self.args.output_dir)
                 logger.info(f"Loaded lora model from {lora_path}")
                 self.lora_loaded = True
 
@@ -359,13 +307,12 @@ class ChatGLMTune:
         return response
 
     @torch.no_grad()
-    def predict(self, sentences, logits_processor=None, keep_prompt=False, max_length=None, **kwargs):
+    def predict(self, sentences, keep_prompt=False, max_length=None, **kwargs):
         """
         Performs predictions on a list of text.
 
         Args:
             sentences: A python list of text (str) to be sent to the model for prediction. 
-            logits_processor: A LogitsProcessor object that will be applied to the model's
             keep_prompt: Whether to keep the prompt in the generated text.
             max_length: The maximum length of the generated text.
 
@@ -381,9 +328,6 @@ class ChatGLMTune:
         self.model.eval()
 
         all_outputs = []
-        if logits_processor is None:
-            logits_processor = LogitsProcessorList()
-        logits_processor.append(InvalidScoreLogitsProcessor())
         # Batching
         for batch in tqdm(
                 [
@@ -401,7 +345,6 @@ class ChatGLMTune:
                 "top_p": self.args.top_p,
                 "temperature": self.args.temperature,
                 "eos_token_id": self.tokenizer.eos_token_id,
-                "logits_processor": logits_processor,
                 **kwargs
             }
             outputs = self.model.generate(**inputs, **gen_kwargs)
@@ -420,12 +363,11 @@ class ChatGLMTune:
 
     @torch.no_grad()
     def chat(self, query: str, history: List[Tuple[str, str]] = None,
-             logits_processor=None, keep_prompt=False, max_length=128, **kwargs):
+             keep_prompt=False, max_length=128, **kwargs):
         """
         Chat with the model
         :param query:
         :param history:
-        :param logits_processor:
         :param keep_prompt:
         :param max_length:
         :param kwargs:
@@ -442,9 +384,7 @@ class ChatGLMTune:
             for i, (old_query, response) in enumerate(history):
                 prompt += "[Round {}]\n问：{}\n答：{}\n".format(i, old_query, response)
             prompt += "[Round {}]\n问：{}\n答：".format(len(history), query)
-        response = self.predict(
-            [prompt], logits_processor=logits_processor,
-            keep_prompt=keep_prompt, max_length=len(prompt) + max_length, **kwargs)[0]
+        response = self.predict([prompt], keep_prompt=keep_prompt, max_length=len(prompt) + max_length, **kwargs)[0]
         history = history + [(query, response)]
         return response, history
 
