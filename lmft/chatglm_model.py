@@ -350,7 +350,7 @@ class ChatGLMTune:
             outputs = self.model.generate(**inputs, **gen_kwargs)
             for idx, (prompt_text, generated_sequence) in enumerate(zip(batch, outputs)):
                 # Decode text
-                text = self.tokenizer.decode(generated_sequence, skip_special_tokens=True)
+                text = self.tokenizer.decode(generated_sequence)
                 prompt_len = len(prompt_text)
                 gen_text = text[prompt_len:]
                 gen_text = self.process_response(gen_text)
