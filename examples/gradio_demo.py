@@ -13,7 +13,7 @@ model = PeftModel.from_pretrained(model, "shibing624/chatglm-6b-csc-zh-lora")
 if torch.cuda.is_available():
     model = model.half().cuda()
 else:
-    model = model.quantize(bits=4, compile_parallel_kernel=True, parallel_num=2).cpu().float()
+    model = model.float()
 tokenizer = AutoTokenizer.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True)
 
 sents = ['对下面中文拼写纠错：\n少先队员因该为老人让坐。\n答：',

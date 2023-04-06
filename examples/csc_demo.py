@@ -16,7 +16,7 @@ tokenizer = AutoTokenizer.from_pretrained("THUDM/chatglm-6b", trust_remote_code=
 if torch.cuda.is_available():
     model = model.half().cuda()
 else:
-    model = model.quantize(bits=4, compile_parallel_kernel=True, parallel_num=2).cpu().float()
+    model = model.float()
 
 sents = ['对下面中文拼写纠错：\n少先队员因该为老人让坐。\n答：',
          '对下面中文拼写纠错：\n下个星期，我跟我朋唷打算去法国玩儿。\n答：']
