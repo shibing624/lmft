@@ -169,8 +169,10 @@ BibTeX:
 # License
 
 
-授权协议为 [The Apache License 2.0](LICENSE)，可免费用做商业用途。请在产品说明中附加lmft的链接和授权协议。
+lmft授权协议为 [The Apache License 2.0](LICENSE)，可免费用做商业用途。请在产品说明中附加lmft的链接和授权协议。
 
+- ChatGLM-6B的模型权重仅限学术研究用，具体见[MODEL_LICENSE](https://github.com/THUDM/ChatGLM-6B/blob/main/MODEL_LICENSE)
+- LLAMA的模型权重仅限学术研究用，具体见[LICENSE](https://huggingface.co/decapoda-research/llama-13b-hf/blob/main/LICENSE)
 
 # Contribute
 项目代码还很粗糙，如果大家对代码有所改进，欢迎提交回本项目，在提交之前，注意以下两点：
