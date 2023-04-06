@@ -3,66 +3,51 @@
 @author:XuMing(xuming624@qq.com)
 @description: pip install gradio
 """
-
 import gradio as gr
-import os
-import sys
-import argparse
-from loguru import logger
+import torch
+from peft import PeftModel
+from transformers import AutoModel, AutoTokenizer
 
-sys.path.append('..')
-from lmft import ChatGlmModel
+model = AutoModel.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True, device_map='auto')
+model = PeftModel.from_pretrained(model, "shibing624/chatglm-6b-csc-zh-lora")
+if torch.cuda.is_available():
+    model = model.half().cuda()
+else:
+    model = model.quantize(bits=4, compile_parallel_kernel=True, parallel_num=2).cpu().float()
+tokenizer = AutoTokenizer.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True)
 
-pwd_path = os.path.abspath(os.path.dirname(__file__))
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--model_type', default='chatglm', type=str, help='Transformers model type')
-parser.add_argument('--model_name', default='THUDM/chatglm-6b', type=str, help='Transformers model or path')
-parser.add_argument('--output_dir', default='./outputs-csc/', type=str, help='Model output directory')
-parser.add_argument('--max_length', default=128, type=int, help='Output max sequence length')
-parser.add_argument('--batch_size', default=16, type=int, help='Batch size')
-args = parser.parse_args()
-logger.info(args)
-
-model = ChatGlmModel(
-    args.model_type, args.model_name,
-    args={'use_lora': True, 'eval_batch_size': args.batch_size,
-          'output_dir': args.output_dir, "max_length": args.max_length, }
-)
-sents = ['问：对下面中文拼写纠错：\n少先队员因该为老人让坐。\n答：',
-         '问：对下面中文拼写纠错：\n下个星期，我跟我朋唷打算去法国玩儿。\n答：']
-
-
-def batch_correct(sentences):
-    prompts = [f"问：对下面中文拼写纠错：\n{s}\n答：" for s in sentences]
-    r = model.predict(prompts)
-    return [s.split('\n')[0] for s in r]
-
-
-response = batch_correct(sents)
-print(response)
+sents = ['对下面中文拼写纠错：\n少先队员因该为老人让坐。\n答：',
+         '对下面中文拼写纠错：\n下个星期，我跟我朋唷打算去法国玩儿。\n答：']
+for s in sents:
+    response = model.chat(tokenizer, s, max_length=128, eos_token_id=tokenizer.eos_token_id)
+    print(response)
 
 
 def ai_text(text):
-    return batch_correct([text])[0]
+    outputs = model.chat(tokenizer, text, max_length=128, eos_token_id=tokenizer.eos_token_id)
+    return outputs
 
 
 if __name__ == '__main__':
     examples = [
-        ['真麻烦你了。希望你们好好的跳无'],
-        ['少先队员因该为老人让坐'],
-        ['机七学习是人工智能领遇最能体现智能的一个分知'],
-        ['今天心情很好'],
-        ['他法语说的很好，的语也不错'],
-        ['他们的吵翻很不错，再说他们做的咖喱鸡也好吃'],
+        ['对下面中文拼写纠错：\n真麻烦你了。希望你们好好的跳无\n答：'],
+        ['对下面中文拼写纠错：\n机七学习是人工智能领遇最能体现智能的一个分知\n答：'],
+        ['对下面中文拼写纠错：\n今天心情很好\n答：'],
+        ['对下面中文拼写纠错：\n他法语说的很好，的语也不错\n答：'],
+        ['对下面中文拼写纠错：\n他们的吵翻很不错，再说他们做的咖喱鸡也好吃\n答：'],
+        ['对下面中文拼写纠错：\n少先队员因该为老人让坐。\n答：'],
+        ['对下面中文拼写纠错：\n下个星期，我跟我朋唷打算去法国玩儿。\n答：']
     ]
 
     gr.Interface(
         ai_text,
         inputs="textbox",
-        outputs=[gr.outputs.Textbox()],
-        title="LMFT Model shibing624/lmft",
-        description="Copy or input error Chinese question.",
+        outputs=[
+            gr.outputs.Textbox()
+        ],
+        theme="grass",
+        title="Chinese Spelling Correction LoRA Model chatglm-6b-csc-zh-lora",
+        description="Copy or input error Chinese text. Submit and the machine will correct text.",
         article="Link to <a href='https://github.com/shibing624/lmft' style='color:blue;' target='_blank\'>Github REPO</a>",
         examples=examples
     ).launch()

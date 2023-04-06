@@ -131,7 +131,7 @@ output:
 ```
 
 
-## dataset
+## Dataset
 1. 50万条中文ChatGPT指令数据集：[BelleGroup/train_0.5M_CN](https://huggingface.co/datasets/BelleGroup/train_0.5M_CN)
 2. 100万条中文ChatGPT指令数据集：[BelleGroup/train_1M_CN](https://huggingface.co/datasets/BelleGroup/train_1M_CN)
 3. 5万条英文ChatGPT指令数据集：[50k English Stanford Alpaca dataset](https://github.com/tatsu-lab/stanford_alpaca#data-release)

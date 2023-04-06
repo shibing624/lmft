@@ -156,6 +156,8 @@ class ChatGLMArgs(ModelArgs):
     lora_rank: int = field(default=8)
     lora_alpha = 32
     lora_dropout = 0.1
+    use_ppo: bool = False
+    ppo_mini_batch_size = 16
     num_train_epochs = 1
     max_steps = -1
     per_device_train_batch_size = 2

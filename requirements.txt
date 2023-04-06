@@ -2,7 +2,6 @@ loguru
 transformers>=4.27.1
 datasets
 tqdm
-trl
-icetk
 cpm_kernels
-git+https://github.com/huggingface/peft.git
+peft
+gradio

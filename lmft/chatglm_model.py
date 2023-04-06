@@ -38,27 +38,6 @@ MODEL_CLASSES = {
 }
 
 
-class FinetuneTrainer(Trainer):
-    def compute_loss(self, model, inputs, return_outputs=False):
-        return model(
-            input_ids=inputs["input_ids"],
-            labels=inputs["labels"],
-        ).loss
-
-    def save_model(self, output_dir=None, _internal_call=False, lora_name='adapter_model.bin'):
-        os.makedirs(output_dir, exist_ok=True)
-        torch.save(self.args, os.path.join(output_dir, TRAINING_ARGS_NAME))
-        saved_params = {
-            k: v.to("cpu") for k, v in self.model.named_parameters() if v.requires_grad
-        }
-        torch.save(saved_params, os.path.join(output_dir, lora_name))
-
-
-class CastOutputToFloat(nn.Sequential):
-    def forward(self, x):
-        return super().forward(x).to(torch.float32)
-
-
 class ChatGlmModel:
     def __init__(
             self,
@@ -146,6 +125,7 @@ class ChatGlmModel:
 
         self.lora_name = lora_name
         self.lora_loaded = False
+
 
     def data_collator(self, batch):
         len_ids = [len(example) for example in batch]
@@ -240,6 +220,7 @@ class ChatGlmModel:
                 lora_dropout=self.args.lora_dropout,
             )
             self.model = get_peft_model(self.model, peft_config)
+            print_trainable_parameters(self.model)
             self.lora_loaded = True
         self._move_model_to_device()
         # load dataset
@@ -474,3 +455,39 @@ class ChatGlmModel:
 
     def get_named_parameters(self):
         return [n for n, p in self.model.named_parameters()]
+
+
+class FinetuneTrainer(Trainer):
+    def compute_loss(self, model, inputs, return_outputs=False):
+        return model(
+            input_ids=inputs["input_ids"],
+            labels=inputs["labels"],
+        ).loss
+
+    def save_model(self, output_dir=None, _internal_call=False, lora_name='adapter_model.bin'):
+        os.makedirs(output_dir, exist_ok=True)
+        torch.save(self.args, os.path.join(output_dir, TRAINING_ARGS_NAME))
+        saved_params = {
+            k: v.to("cpu") for k, v in self.model.named_parameters() if v.requires_grad
+        }
+        torch.save(saved_params, os.path.join(output_dir, lora_name))
+
+
+class CastOutputToFloat(nn.Sequential):
+    def forward(self, x):
+        return super().forward(x).to(torch.float32)
+
+
+def print_trainable_parameters(model):
+    """
+    Prints the number of trainable parameters in the model.
+    """
+    trainable_params = 0
+    all_param = 0
+    for _, param in model.named_parameters():
+        all_param += param.numel()
+        if param.requires_grad:
+            trainable_params += param.numel()
+    logger.debug(
+        f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
+    )
