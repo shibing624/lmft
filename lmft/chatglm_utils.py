@@ -163,7 +163,7 @@ class ChatGLMArgs(ModelArgs):
     save_total_limit = 2
     remove_unused_columns = False
     logging_steps = 50
-    quantization_bit: int = None  # quantization bit for quantization aware training, set 8 or 4
+    quantization_bit = None  # if use quantization bit, set 8 or 4, else None
 
 
 def preprocess_data(data):

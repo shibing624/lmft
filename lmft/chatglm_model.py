@@ -111,6 +111,8 @@ class ChatGLMTune:
         else:
             self.device = "cpu"
         logger.debug(f"Device: {self.device}")
+        if not use_cuda:
+            self.args.fp16 = False
 
         self.results = {}
         config_class, model_class, tokenizer_class = MODEL_CLASSES[model_type]
@@ -122,7 +124,8 @@ class ChatGLMTune:
             if self.args.quantization_bit is not None:
                 logger.debug(f"Quantized to {self.args.quantization_bit} bit")
                 self.model = self.model.quantize(self.args.quantization_bit)
-            self.model = self.model.half().cuda()
+            if self.args.fp16:
+                self.model = self.model.half().cuda()
         else:
             self.model = model_class.from_pretrained(model_name, config=config, trust_remote_code=True).float()
 
@@ -132,9 +135,6 @@ class ChatGLMTune:
         else:
             self.tokenizer = tokenizer_class.from_pretrained(model_name, trust_remote_code=True)
             self.args.tokenizer_name = self.args.model_name
-
-        if not use_cuda:
-            self.args.fp16 = False
 
         self.args.model_type = model_type
         if model_name is None:
