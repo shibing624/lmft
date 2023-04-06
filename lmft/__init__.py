@@ -4,4 +4,4 @@
 @description: 
 """
 
-from lmft.chatglm_model import ChatGLMTune
+from lmft.chatglm_model import ChatGlmModel

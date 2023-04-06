@@ -64,6 +64,17 @@ pip install --no-deps .
 ```
 
 # Usage
+## Use LoRA model
+release lora model: 
+1. 中文拼写纠错（CSC）模型 [shibing624/chatglm-6b-csc-zh-lora](https://huggingface.co/shibing624/chatglm-6b-csc-zh-lora)
+
+
+```python
+from lmft import ChatGlmModel
+model = ChatGlmModel("chatglm", "THUDM/chatglm-6b", lora_name="shibing624/chatglm-6b-csc-zh-lora")
+r = model.predict(["对下面中文拼写纠错：\n少先队员因该为老人让坐。\n答："])
+print(r) # ['少先队员应该为老人让座。\n错误字：因，坐']
+```
 
 ## 训练ChatGLM-6B模型
 
@@ -76,11 +87,11 @@ example: [examples/training_chatglm_demo.py](examples/training_chatglm_demo.py)
 import sys
 
 sys.path.append('..')
-from lmft import ChatGLMTune
+from lmft import ChatGlmModel
 
 
 def finetune_demo():
-    m = ChatGLMTune('chatglm', "THUDM/chatglm-6b", args={'use_lora': True})
+    m = ChatGlmModel('chatglm', "THUDM/chatglm-6b", args={'use_lora': True})
     m.train_model(train_data='shibing624/alpaca-zh')
     r = m.predict(['给出三个保持健康的秘诀。', '描述原子的结构。'])
     print(r)
@@ -91,7 +102,7 @@ def finetune_demo():
 
 
 def origin_chat_demo():
-    m = ChatGLMTune('chatglm', "THUDM/chatglm-6b", args={'use_lora': False})
+    m = ChatGlmModel('chatglm', "THUDM/chatglm-6b", args={'use_lora': False})
     response, history = m.chat("你好", history=[])
     print(response)
     response, history = m.chat("晚上睡不着应该怎么办", history=history)

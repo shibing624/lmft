@@ -11,7 +11,7 @@ import argparse
 from loguru import logger
 
 sys.path.append('..')
-from lmft import ChatGLMTune
+from lmft import ChatGlmModel
 
 pwd_path = os.path.abspath(os.path.dirname(__file__))
 
@@ -24,7 +24,7 @@ parser.add_argument('--batch_size', default=16, type=int, help='Batch size')
 args = parser.parse_args()
 logger.info(args)
 
-model = ChatGLMTune(
+model = ChatGlmModel(
     args.model_type, args.model_name,
     args={'use_lora': True, 'eval_batch_size': args.batch_size,
           'output_dir': args.output_dir, "max_length": args.max_length, }

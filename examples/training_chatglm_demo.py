@@ -9,7 +9,7 @@ from loguru import logger
 import pandas as pd
 
 sys.path.append('..')
-from lmft import ChatGLMTune
+from lmft import ChatGlmModel
 
 
 def load_data(file_path):
@@ -57,7 +57,7 @@ def finetune_demo():
             "output_dir": args.output_dir,
             'eval_batch_size': args.batch_size,
         }
-        model = ChatGLMTune(args.model_type, args.model_name, args=model_args)
+        model = ChatGlmModel(args.model_type, args.model_name, args=model_args)
         train_data = load_data(args.train_file)
         logger.debug('train_data: {}'.format(train_data[:10]))
         train_df = pd.DataFrame(train_data, columns=["instruction", "input", "output"])
@@ -65,7 +65,7 @@ def finetune_demo():
         model.train_model(train_df)
     if args.do_predict:
         if model is None:
-            model = ChatGLMTune(
+            model = ChatGlmModel(
                 args.model_type, args.model_name,
                 args={'use_lora': True, 'eval_batch_size': args.batch_size,
                       'output_dir': args.output_dir, "max_length": args.max_length, }
@@ -89,8 +89,8 @@ def finetune_demo():
         print(response)
         del model
 
-        ref_model = ChatGLMTune(args.model_type, args.model_name,
-                                args={'use_lora': False, 'eval_batch_size': args.batch_size})
+        ref_model = ChatGlmModel(args.model_type, args.model_name,
+                                 args={'use_lora': False, 'eval_batch_size': args.batch_size})
         test_df['predict_before'] = ref_model.predict(test_df['prompt'].tolist())
         logger.debug('test_df result: {}'.format(test_df))
         out_df = test_df[['instruction', 'input', 'output', 'predict_before', 'predict_after']]

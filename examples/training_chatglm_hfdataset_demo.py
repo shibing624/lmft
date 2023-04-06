@@ -8,7 +8,7 @@ import argparse
 from loguru import logger
 
 sys.path.append('..')
-from lmft import ChatGLMTune
+from lmft import ChatGlmModel
 
 
 def finetune_demo():
@@ -43,12 +43,12 @@ def finetune_demo():
             "output_dir": args.output_dir,
             "use_hf_datasets": True
         }
-        model = ChatGLMTune(args.model_type, args.model_name, args=model_args)
+        model = ChatGlmModel(args.model_type, args.model_name, args=model_args)
 
         model.train_model(args.train_file)
     if args.do_predict:
         if model is None:
-            model = ChatGLMTune(
+            model = ChatGlmModel(
                 args.model_type, args.model_name,
                 args={'use_lora': True, 'eval_batch_size': args.batch_size,
                       'output_dir': args.output_dir, "max_length": args.max_length, }
@@ -66,8 +66,8 @@ def finetune_demo():
         print(response)
         del model
 
-        ref_model = ChatGLMTune(args.model_type, args.model_name,
-                                args={'use_lora': False, 'eval_batch_size': args.batch_size})
+        ref_model = ChatGlmModel(args.model_type, args.model_name,
+                                 args={'use_lora': False, 'eval_batch_size': args.batch_size})
         response = ref_model.predict(sents)
         print(response)
         response, history = ref_model.chat("给出三个保持健康的秘诀。", history=[])

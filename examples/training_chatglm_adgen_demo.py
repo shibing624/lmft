@@ -10,7 +10,7 @@ from datasets import load_dataset
 from torch.utils.data import Dataset
 
 sys.path.append('..')
-from lmft import ChatGLMTune
+from lmft import ChatGlmModel
 
 
 def preprocess_batch_for_hf_dataset(example, tokenizer, args):
@@ -77,12 +77,12 @@ def finetune_demo():
             "save_eval_checkpoints": False,
             "output_dir": args.output_dir,
         }
-        model = ChatGLMTune(args.model_type, args.model_name, args=model_args)
+        model = ChatGlmModel(args.model_type, args.model_name, args=model_args)
 
         model.train_model(args.train_file)
     if args.do_predict:
         if model is None:
-            model = ChatGLMTune(
+            model = ChatGlmModel(
                 args.model_type, args.model_name,
                 args={'use_lora': True, 'eval_batch_size': args.batch_size,
                       'output_dir': args.output_dir, "max_length": args.max_length, }

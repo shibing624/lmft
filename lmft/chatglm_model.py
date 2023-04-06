@@ -59,11 +59,12 @@ class CastOutputToFloat(nn.Sequential):
         return super().forward(x).to(torch.float32)
 
 
-class ChatGLMTune:
+class ChatGlmModel:
     def __init__(
             self,
             model_type,
             model_name,
+            lora_name=None,
             args=None,
             use_cuda=has_cuda,
             cuda_device=-1,
@@ -76,6 +77,7 @@ class ChatGLMTune:
         Args:
             model_type: The type of model (chatglm)
             model_name: The exact architecture and trained weights to use. This may be a Hugging Face Transformers compatible pre-trained model, a community model, or the path to a directory containing model files.
+            lora_name (optional): Lora name
             args (optional): Default args will be used if this parameter is not provided. If provided, it should be a dict containing the args that should be changed in the default args.
             use_cuda (optional): Use GPU if available. Setting to False will force model to use CPU only.
             cuda_device (optional): Specific GPU that should be used. Will use the first available GPU by default.
@@ -141,6 +143,8 @@ class ChatGLMTune:
             self.args.model_name = "ChatGLM_from_scratch"
         else:
             self.args.model_name = model_name
+
+        self.lora_name = lora_name
         self.lora_loaded = False
 
     def data_collator(self, batch):
@@ -285,12 +289,17 @@ class ChatGLMTune:
 
     def load_lora(self):
         if self.args.use_lora:
-            lora_path = os.path.join(self.args.output_dir, self.args.lora_name)
-            if lora_path and os.path.exists(lora_path):
-                # infer with trained lora model
-                self.model = PeftModel.from_pretrained(self.model, self.args.output_dir)
-                logger.info(f"Loaded lora model from {lora_path}")
+            if self.lora_name and self.lora_name.startswith('shibing624'):
+                self.model = PeftModel.from_pretrained(self.model, self.lora_name)
+                logger.info(f"Loaded lora model from {self.lora_name}")
                 self.lora_loaded = True
+            else:
+                lora_path = os.path.join(self.args.output_dir, self.args.lora_name)
+                if lora_path and os.path.exists(lora_path):
+                    # infer with trained lora model
+                    self.model = PeftModel.from_pretrained(self.model, self.args.output_dir)
+                    logger.info(f"Loaded lora model from {lora_path}")
+                    self.lora_loaded = True
 
     def process_response(self, response):
         response = response.strip().replace("[[训练时间]]", "2023年")
