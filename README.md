@@ -39,10 +39,6 @@ Language Model Fine-Tuning, for ChatGLM, BELLE, LLaMA fine-tuning.
 
 # Demo
 
-HuggingFace Demo: https://huggingface.co/spaces/shibing624/lmft
-
-![](docs/hf.png)
-
 run example: [examples/gradio_demo.py](examples/gradio_demo.py) to see the demo:
 ```shell
 python examples/gradio_demo.py
@@ -82,37 +78,6 @@ print(r) # ['少先队员应该为老人让座。\n错误字：因，坐']
 
 
 example: [examples/training_chatglm_demo.py](examples/training_chatglm_demo.py)
-
-```python
-import sys
-
-sys.path.append('..')
-from lmft import ChatGlmModel
-
-
-def finetune_demo():
-    m = ChatGlmModel('chatglm', "THUDM/chatglm-6b", args={'use_lora': True})
-    m.train_model(train_data='shibing624/alpaca-zh')
-    r = m.predict(['给出三个保持健康的秘诀。', '描述原子的结构。'])
-    print(r)
-    response, history = m.chat("你好", history=[])
-    print(response)
-    response, history = m.chat("晚上睡不着应该怎么办", history=history)
-    print(response)
-
-
-def origin_chat_demo():
-    m = ChatGlmModel('chatglm', "THUDM/chatglm-6b", args={'use_lora': False})
-    response, history = m.chat("你好", history=[])
-    print(response)
-    response, history = m.chat("晚上睡不着应该怎么办", history=history)
-    print(response)
-
-
-if __name__ == '__main__':
-    origin_chat_demo()
-    finetune_demo()
-```
 
 output:
 ```
