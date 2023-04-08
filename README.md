@@ -13,6 +13,7 @@ Language Model Fine-Tuning, for ChatGLM, BELLE, LLaMA fine-tuning.
 
 **lmft**实现了ChatGLM-6B的模型FineTune。
 
+## Update: [2023-04-07] lmft 仓库中 ChatGLM-6B LoRA fine-tune 最新代码已经合并到 [textgen](https://github.com/shibing624/textgen) 仓库。
 
 **Guide**
 - [Feature](#Feature)
