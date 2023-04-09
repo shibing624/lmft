@@ -32,12 +32,6 @@ Language Model Fine-Tuning, for ChatGLM, BELLE, LLaMA fine-tuning.
 [THUDM/ChatGLM-6B](https://github.com/THUDM/ChatGLM-6B)放出的默认模型，模型以 FP16 精度加载，模型运行需要 13GB 显存，训练需要 22GB 显存(batch_size=2)。
 
 
-# Evaluation
-
-### 纠错能力比较
-
-### 对话能力比较
-
 # Demo
 
 run example: [examples/gradio_demo.py](examples/gradio_demo.py) to see the demo:
@@ -60,11 +54,14 @@ cd lmft
 pip install --no-deps .
 ```
 
-# Usage
-## Use LoRA model
-release lora model: 
-1. 中文拼写纠错（CSC）模型 [shibing624/chatglm-6b-csc-zh-lora](https://huggingface.co/shibing624/chatglm-6b-csc-zh-lora)
 
+# Usage
+## Release LoRA model
+
+- 在27万中文拼写纠错数据[shibing624/CSC](https://huggingface.co/datasets/shibing624/CSC)上微调了一版ChatGLM-6B，纠错效果有提升，发布了微调后的LoRA权重：[shibing624/chatglm-6b-csc-zh-lora](https://huggingface.co/shibing624/chatglm-6b-csc-zh-lora)
+- 在100万条中文ChatGPT指令Belle数据集[BelleGroup/train_1M_CN](https://huggingface.co/datasets/BelleGroup/train_1M_CN)上微调了一版ChatGLM-6B，问答效果有提升，发布了微调后的LoRA权重：[shibing624/chatglm-6b-belle-zh-lora](https://huggingface.co/shibing624/chatglm-6b-belle-zh-lora)
+
+## 使用ChatGLM-6B LoRA微调后的模型
 
 ```python
 from lmft import ChatGlmModel
@@ -73,7 +70,7 @@ r = model.predict(["对下面中文拼写纠错：\n少先队员因该为老人�
 print(r) # ['少先队员应该为老人让座。\n错误字：因，坐']
 ```
 
-## 训练ChatGLM-6B模型
+## 训练ChatGLM-6B LoRA模型
 
 支持自定义数据集，数据集格式参考[examples/data/test.tsv](examples/data/test.tsv)。
 
@@ -98,11 +95,11 @@ output:
 
 
 ## Dataset
-1. 50万条中文ChatGPT指令数据集：[BelleGroup/train_0.5M_CN](https://huggingface.co/datasets/BelleGroup/train_0.5M_CN)
-2. 100万条中文ChatGPT指令数据集：[BelleGroup/train_1M_CN](https://huggingface.co/datasets/BelleGroup/train_1M_CN)
-3. 5万条英文ChatGPT指令数据集：[50k English Stanford Alpaca dataset](https://github.com/tatsu-lab/stanford_alpaca#data-release)
-4. 2万条中文ChatGPT指令数据集：[shibing624/alpaca-zh](https://huggingface.co/datasets/shibing624/alpaca-zh)
-5. 69万条中文指令数据集(Belle50万条+Guanaco19万条)：[Chinese-Vicuna/guanaco_belle_merge_v1.0](https://huggingface.co/datasets/Chinese-Vicuna/guanaco_belle_merge_v1.0)
+1. 50万条中文ChatGPT指令Belle数据集：[BelleGroup/train_0.5M_CN](https://huggingface.co/datasets/BelleGroup/train_0.5M_CN)
+2. 100万条中文ChatGPT指令Belle数据集：[BelleGroup/train_1M_CN](https://huggingface.co/datasets/BelleGroup/train_1M_CN)
+3. 5万条英文ChatGPT指令Alpaca数据集：[50k English Stanford Alpaca dataset](https://github.com/tatsu-lab/stanford_alpaca#data-release)
+4. 2万条中文ChatGPT指令Alpaca数据集：[shibing624/alpaca-zh](https://huggingface.co/datasets/shibing624/alpaca-zh)
+5. 69万条中文指令Guanaco数据集(Belle50万条+Guanaco19万条)：[Chinese-Vicuna/guanaco_belle_merge_v1.0](https://huggingface.co/datasets/Chinese-Vicuna/guanaco_belle_merge_v1.0)
 
 ## FAQ
 1. 问：为啥没有`int4`量化模型的Finetune训练？
