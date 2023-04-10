@@ -245,7 +245,6 @@ class ChatGlmModel:
             fp16=self.args.fp16,
             remove_unused_columns=self.args.remove_unused_columns,
             overwrite_output_dir=self.args.overwrite_output_dir,
-            do_train=True,
             no_cuda=True if self.device == "cpu" else False,
         )
         logger.debug(f"training_args: {training_args}")
@@ -270,7 +269,7 @@ class ChatGlmModel:
 
     def load_lora(self):
         if self.args.use_lora:
-            if self.lora_name and self.lora_name.startswith('shibing624'):
+            if self.lora_name:
                 self.model = PeftModel.from_pretrained(self.model, self.lora_name)
                 logger.info(f"Loaded lora model from {self.lora_name}")
                 self.lora_loaded = True
