@@ -14,8 +14,7 @@ ChatGLM-6B fine-tuning.
 **lmft**实现了ChatGLM-6B的模型FineTune。
 
 #### Update: [2023-04-07] lmft 仓库中 ChatGLM-6B LoRA fine-tune 最新代码已经合并到 [textgen](https://github.com/shibing624/textgen) 仓库。
-
-lmft处于半存档状态，有关文本大模型（ChatGLM、BLOOMZ、LLAMA）的微调最新代码，请参阅我的仓库[textgen](https://github.com/shibing624/textgen)。
+#### [2023-04-10] lmft 处于半存档状态，有关文本大模型（ChatGLM、BLOOMZ、LLAMA）的微调最新代码，请参阅我的仓库[textgen](https://github.com/shibing624/textgen)。
 
 
 # Feature
