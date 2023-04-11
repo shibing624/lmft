@@ -8,21 +8,14 @@
 [![Wechat Group](http://vlog.sfyc.ltd/wechat_everyday/wxgroup_logo.png?imageView2/0/w/60/h/20)](#Contact)
 
 # LMFT: Language Model Fine-Tuning
-Language Model Fine-Tuning, for ChatGLM, BELLE, LLaMA fine-tuning.
+ChatGLM-6B fine-tuning.
 
 
 **lmft**实现了ChatGLM-6B的模型FineTune。
 
 #### Update: [2023-04-07] lmft 仓库中 ChatGLM-6B LoRA fine-tune 最新代码已经合并到 [textgen](https://github.com/shibing624/textgen) 仓库。
 
-**Guide**
-- [Feature](#Feature)
-- [Evaluation](#Evaluation)
-- [Demo](#Demo)
-- [Install](#install)
-- [Usage](#usage)
-- [Contact](#Contact)
-- [Reference](#reference)
+lmft处于半存档状态，有关文本大模型（ChatGLM、BLOOMZ、LLAMA）的微调最新代码，请参阅我的仓库[textgen](https://github.com/shibing624/textgen)。
 
 
 # Feature
@@ -47,11 +40,9 @@ pip install -U lmft
 or
 
 ```shell
-pip install -r requirements.txt
-
 git clone https://github.com/shibing624/lmft.git
 cd lmft
-pip install --no-deps .
+pip install -e .
 ```
 
 
